@@ -1,0 +1,6 @@
+# User configuration
+config.js
+
+# User widgets & Icons
+widgets/*
+icons/*
