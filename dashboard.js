@@ -196,16 +196,34 @@ function renderDashboard(config) {
 }
 
 function chooseConfig() {
+  // Config Override
+  const segments = window.location.pathname
+    .split("/")
+    .filter(Boolean);
+
+  const configOverrideName = segments[0] || null;
+
+  const overrideConfig = configOverrideName
+    ? breakpointConfigs.find(cfg => cfg.name === configOverrideName)
+    : null;
+
   const matched = breakpointConfigs.find(({ mediaQuery }) =>
     window.matchMedia(mediaQuery).matches
   );
 
   // Fallback if no media query matches
-  console.log("Using Config: ", matched.name);
-  const config = matched ? matched.config : landscapeConfig;
+  const config =
+    overrideConfig?.config ||
+    matched?.config ||
+    landscapeConfig;
+
+  console.log("Matched Config: ", matched);
+  console.log("Using Config: ", overrideConfig);
 
   renderDashboard(config);
-  initScreenSizeOverlay(matched.name);
+  initScreenSizeOverlay(
+    overrideConfig?.name || matched?.name || "fallback"
+  );
 }
 
 
@@ -262,6 +280,7 @@ function initScreenSizeOverlay(title) {
 
   function update() {
     overlay.innerHTML = `${window.innerWidth} × ${window.innerHeight}<br/>${title}`;
+    resizeGridSquares();
   }
 
   update();
