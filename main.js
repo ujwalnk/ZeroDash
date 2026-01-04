@@ -3,6 +3,8 @@ import { selectLayout } from './core/layoutSelector.js';
 import { renderLayout } from './core/renderer.js';
 import { fitAllLabels } from './core/textFitter.js';
 import { createDevOverlay, updateDevOverlay } from './core/devOverlay.js';
+import { initSearch } from './core/search.js';
+import { searchConfig } from './searchConfig.js';
 
 function init() {
   try {
@@ -41,6 +43,9 @@ function init() {
 
     // Create developer overlay
     let devOverlay = createDevOverlay(dashboardConfig.layouts, currentLayoutName);
+
+    // Initialize global search
+    const searchEngine = initSearch(dashboardConfig, searchConfig);
 
     // Handle window resize for media query changes and text fitting
     let resizeTimeout;
