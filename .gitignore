@@ -1,6 +1,5 @@
 # User configuration
+user
 config.js
-
-# User widgets & Icons
-widgets/*
-icons/*
+icons
+.DS_Store

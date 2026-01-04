@@ -1,176 +1,131 @@
-body {
+* {
   margin: 0;
-  font-family: sans-serif;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
   background-color: #f5f5f5;
 }
 
 #dashboard {
-  display: grid;
-  gap: 8px;
-  padding: 16px;
-  height: 100vh;
-  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 10px;
 }
 
 .tile {
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 10px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+  /* Make tile a predictable flexbox container */
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex-direction: column;
-  padding: 16px;
-  transition: transform 0.2s;
-  cursor: pointer;
-  overflow: hidden;
-}
-.tile:hover {
-  transform: scale(1.03);
+  min-width: 0;
+  min-height: 0;
 }
 
+.tile:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Responsive text sizing - single line only, shrink to fit, never clip glyphs */
+/* CSS provides safe defaults, but JS text-fitting is required for accurate fitting */
+.tile div:not(.webhook-content):not(.toggle-error),
+.tile span {
+  display: inline-block;
+  text-align: center;
+  /* Single line only - never wrap */
+  white-space: nowrap;
+  /* Preserve glyph height - ensure descenders are visible */
+  line-height: 1.25;
+  /* Safe default font size - JS will adjust dynamically */
+  font-size: 18px;
+  /* Constrain width - allow horizontal overflow to be hidden */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip;
+  /* DO NOT clip vertically - descenders must remain visible */
+  min-width: 0;
+}
+
+/* Preserve webhook-content and error message styling */
+.tile .webhook-content {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
+.tile .toggle-error {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
+/* Constrain icons - prevent them from consuming all space */
 .tile img {
+  display: block;
   max-width: 60%;
   max-height: 60%;
+  width: auto;
+  height: auto;
   object-fit: contain;
-  transition: filter 0.3s;
-}
-.tile img.unreachable {
-  filter: grayscale(100%) brightness(0.6);
+  flex-shrink: 0;
 }
 
-.tile span {
-  margin-top: 8px;
-  font-size: 0.9rem;
-  text-align: center;
+/* Icon-only tiles (no direct child divs/spans for labels) can have larger icons */
+.tile:has(img):not(:has(> div)):not(:has(> span)) img {
+  max-width: 80%;
+  max-height: 80%;
 }
 
+/* Ensure iframes fully occupy tile area */
 .tile iframe {
-  width: 100%;
-  height: 100%;
   border: none;
-  border-radius: 12px;
-}
-
-.no-padding{
-  padding: 0px;
-  background: transparent;
-}
-
-.webhook-response {
-  font-family: "Segoe UI", Roboto, sans-serif;
-  font-size: 0.95rem;
-  color: #333;
-  text-align: center;         /* centers text & inline elements */
-  display: flex;              /* flex container to center children */
-  flex-direction: column;
-  align-items: center;        /* horizontal center */
-  justify-content: center;    /* vertical center */
-  padding: 8px;
   width: 100%;
   height: 100%;
-  overflow: auto;             /* scroll if content too big */
-  box-sizing: border-box;
+  flex: 1 1 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
-/* Optional: prevent some global tag effects */
-.webhook-response h1,
-.webhook-response h2,
-.webhook-response h3,
-.webhook-response p {
-  margin: 0.2em 0;
+/* Support for no-padding variant */
+.tile.no-padding {
+  padding: 0;
 }
 
-
-.webhook-response .error {
-  color: #b00020;
-  font-weight: bold;
+/* When no-padding, allow larger icons */
+.tile.no-padding img {
+  max-width: 90%;
+  max-height: 90%;
 }
 
-
-/* Search Popup Styles */
-#search-popup {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.7);
-  z-index: 1000;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 10vh;
+.webhook-content {
+  padding: 10px;
 }
 
-.search-container {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-  width: 90%;
-  max-width: 600px;
-  max-height: 70vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+/* Unreachable application tiles - grey out icon and label */
+.tile.unreachable {
+  opacity: 0.5;
 }
 
-#search-input {
-  width: 100%;
-  padding: 20px;
-  font-size: 1.2rem;
-  border: none;
-  border-bottom: 2px solid #e0e0e0;
-  outline: none;
-  box-sizing: border-box;
+.tile.unreachable img {
+  filter: grayscale(100%);
+  opacity: 0.6;
 }
 
-#search-input:focus {
-  border-bottom-color: #2196F3;
-}
-
-#search-results {
-  overflow-y: auto;
-  max-height: calc(70vh - 70px);
-}
-
-.search-result-item {
-  display: flex;
-  align-items: center;
-  padding: 15px 20px;
-  cursor: pointer;
-  transition: background 0.2s;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.search-result-item:hover,
-.search-result-item.selected {
-  background: #f5f5f5;
-}
-
-.search-result-item.selected {
-  background: #e3f2fd;
-  border-left: 4px solid #2196F3;
-}
-
-.search-result-item.no-results {
-  justify-content: center;
+.tile.unreachable div {
   color: #999;
-  cursor: default;
 }
 
-.search-result-item.no-results:hover {
-  background: transparent;
-}
-
-.search-result-item img {
-  width: 32px;
-  height: 32px;
-  margin-right: 15px;
-  object-fit: contain;
-}
-
-.search-result-item span {
-  font-size: 1rem;
-  color: #333;
-}
