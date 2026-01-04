@@ -1,5 +1,8 @@
+// Global registry for toggle instances grouped by tag
+const toggleRegistry = new Map(); // tag -> Set of { container, fetchStatus }
+
 export function renderToggle(container, config) {
-  const { label, displayLabel, method, payload, targetUrl, statusCheckUrl } = config;
+  const { label, displayLabel, method, payload, targetUrl, statusCheckUrl, tag } = config;
   
   container.style.display = 'flex';
   container.style.flexDirection = 'column';
@@ -102,11 +105,63 @@ export function renderToggle(container, config) {
       
       // Re-fetch status after toggle
       await fetchStatus();
+      
+      // If this toggle has a non-empty tag, refresh all toggles with the same tag
+      if (tag && typeof tag === 'string' && tag.trim() !== '') {
+        const taggedToggles = toggleRegistry.get(tag);
+        if (taggedToggles) {
+          // Refresh all toggles with this tag (including this one, but it's already refreshed)
+          for (const toggleInstance of taggedToggles) {
+            if (toggleInstance.container !== container) {
+              // Refresh other toggles with same tag
+              try {
+                await toggleInstance.fetchStatus();
+              } catch (error) {
+                // Isolate errors - don't break refresh of other toggles
+                console.error('Error refreshing tagged toggle:', error);
+              }
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error('Toggle error:', error);
     }
   }
 
+  // Register this toggle if it has a non-empty tag
+  if (tag && typeof tag === 'string' && tag.trim() !== '') {
+    if (!toggleRegistry.has(tag)) {
+      toggleRegistry.set(tag, new Set());
+    }
+    const toggleInstance = { container, fetchStatus };
+    toggleRegistry.get(tag).add(toggleInstance);
+    
+    // Cleanup: unregister when container is removed from DOM
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.removedNodes) {
+          if (node === container || node.contains(container)) {
+            const taggedToggles = toggleRegistry.get(tag);
+            if (taggedToggles) {
+              taggedToggles.delete(toggleInstance);
+              if (taggedToggles.size === 0) {
+                toggleRegistry.delete(tag);
+              }
+            }
+            observer.disconnect();
+            break;
+          }
+        }
+      }
+    });
+    
+    // Observe the parent for removal
+    if (container.parentNode) {
+      observer.observe(container.parentNode, { childList: true, subtree: true });
+    }
+  }
+  
   // On load: fetch status
   fetchStatus();
 

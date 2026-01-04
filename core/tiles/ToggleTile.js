@@ -12,7 +12,7 @@ export class ToggleTile extends Tile {
       throw new Error('ToggleTile config must be an object');
     }
 
-    const allowedKeys = ['label', 'displayLabel', 'method', 'payload', 'targetUrl', 'statusCheckUrl'];
+    const allowedKeys = ['label', 'displayLabel', 'method', 'payload', 'targetUrl', 'statusCheckUrl', 'tag'];
     const keys = Object.keys(config);
     const unknownKeys = keys.filter(key => !allowedKeys.includes(key));
     
@@ -67,6 +67,10 @@ export class ToggleTile extends Tile {
     if (typeof config.statusCheckUrl !== 'string' || !config.statusCheckUrl) {
       throw new Error('ToggleTile config must have a valid statusCheckUrl string');
     }
+
+    if (config.tag !== undefined && config.tag !== null && typeof config.tag !== 'string') {
+      throw new Error('ToggleTile config tag must be a string if provided');
+    }
   }
 
   render(container) {
@@ -78,7 +82,8 @@ export class ToggleTile extends Tile {
       method: this.config.method,
       payload: this.config.payload,
       targetUrl: this.config.targetUrl,
-      statusCheckUrl: this.config.statusCheckUrl
+      statusCheckUrl: this.config.statusCheckUrl,
+      tag: this.config.tag
     });
 
     return tileElement;
