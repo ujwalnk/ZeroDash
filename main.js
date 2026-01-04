@@ -1,4 +1,4 @@
-import { dashboardConfig } from './config.js';
+import { dashboardConfig } from './user/config.js';
 import { selectLayout } from './core/layoutSelector.js';
 import { renderLayout } from './core/renderer.js';
 import { fitAllLabels } from './core/textFitter.js';
