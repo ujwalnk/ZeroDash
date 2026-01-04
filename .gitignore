@@ -1,4 +1,10 @@
 # User configuration
-user
+# user
 icons
 .DS_Store
+
+user/application.js
+user/button.js
+user/config.js
+user/link.js
+user/widget.js

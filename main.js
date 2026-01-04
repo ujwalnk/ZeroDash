@@ -4,7 +4,7 @@ import { renderLayout } from './core/renderer.js';
 import { fitAllLabels } from './core/textFitter.js';
 import { createDevOverlay, updateDevOverlay } from './core/devOverlay.js';
 import { initSearch } from './core/search.js';
-import { searchConfig } from './searchConfig.js';
+import { searchConfig } from './user/searchConfig.js';
 
 function init() {
   try {
