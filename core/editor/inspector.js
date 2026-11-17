@@ -1,6 +1,6 @@
 // core/editor/inspector.js — right-hand panel: Tile properties / Layout settings.
 
-import { h, getPath, setPath, clamp } from './dom.js';
+import { h, getPath, setPath, clamp, icon } from './dom.js';
 import { TILE_TYPES, parseMQ, buildMQ } from './schema.js';
 
 const ICON_CDN = 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons';
@@ -9,6 +9,7 @@ export function createInspector(ed) {
   const root = h('aside', { class: 'zd-panel' });
   let tab = 'tile';
   let posInputs = null; // { x, y, width, height } inputs of the current tile form
+  let layersBox = null;
 
   function setTab(name) { tab = name; render(); }
 
@@ -34,7 +35,8 @@ export function createInspector(ed) {
           Object.entries(TILE_TYPES).map(([type, def]) =>
             h('button', { class: 'zd-palette-item', onclick: () => ed.addTile(type) },
               h('strong', {}, '+ ' + def.label), h('small', {}, def.hint)))),
-        h('p', { class: 'zd-muted' }, 'Tip: drag on empty space to draw a tile, or double-click an empty cell.')
+        h('p', { class: 'zd-muted' }, 'Tip: drag on empty space to draw a tile, or double-click an empty cell.'),
+        layersSection()
       ];
     }
 
@@ -88,10 +90,43 @@ export function createInspector(ed) {
       def.fields.map(f => fieldRow(t, f, onConfigChange)),
       errBox,
       h('div', { class: 'zd-row' },
-        h('button', { class: 'zd-btn', onclick: () => ed.duplicateTile(t) }, 'Duplicate'),
-        h('button', { class: 'zd-btn zd-danger', onclick: () => ed.deleteTile(t) }, 'Delete')));
+        h('button', { class: 'zd-btn', onclick: () => ed.duplicateTile(t) }, icon('copy', 13), 'Duplicate'),
+        h('button', { class: 'zd-btn', title: 'Ctrl+C, then Ctrl+V in any layout', onclick: () => ed.copyTile(t) }, 'Copy'),
+        h('button', { class: 'zd-btn zd-danger', onclick: () => ed.deleteTile(t) }, icon('trash', 13), 'Delete')),
+      layersSection());
     refreshError();
     return form;
+  }
+
+  // Layers: every tile of the layout, top of the stack first. Handy for tiles hidden under others.
+  function layersSection() {
+    layersBox = h('div', { class: 'zd-layers' });
+    fillLayers();
+    return h('div', {}, h('div', { class: 'zd-sec' }, 'Layers ', h('small', {}, '(top first)')), layersBox);
+  }
+
+  function fillLayers() {
+    if (!layersBox) return;
+    const tiles = ed.layout().tiles;
+    const sel = ed.selected();
+    if (!tiles.length) { layersBox.replaceChildren(h('p', { class: 'zd-muted' }, 'No tiles yet.')); return; }
+    layersBox.replaceChildren(...[...tiles].reverse().map(t => {
+      const i = tiles.indexOf(t);
+      let name = t.config.label || t.config.url || t.config.targetUrl || t.type;
+      try { const u = new URL(name); name = u.host + (u.pathname === '/' ? '' : u.pathname); } catch { /* not a URL */ }
+      return h('div', { class: 'zd-layer' + (t === sel ? ' on' : '') + (ed.tileError(t) ? ' bad' : '') },
+        h('button', { class: 'zd-layer-main', onclick: () => ed.select(t), title: 'Select' },
+          h('span', { class: 'zd-type' }, t.type),
+          h('span', { class: 'zd-lname2' }, String(name)),
+          h('small', {}, `${t.layout.width}×${t.layout.height}`)),
+        h('button', { class: 'zd-btn zd-sm zd-ibtn', disabled: i === tiles.length - 1, title: 'Bring forward', onclick: () => ed.moveZ(t, 1) }, icon('up', 12)),
+        h('button', { class: 'zd-btn zd-sm zd-ibtn', disabled: i === 0, title: 'Send backward', onclick: () => ed.moveZ(t, -1) }, icon('down', 12)));
+    }));
+  }
+
+  function focusFirst() {
+    const el = root.querySelector('.zd-form .zd-field input[type=text]');
+    if (el) { el.focus(); el.select(); }
   }
 
   function fieldRow(t, f, onChange) {
@@ -255,8 +290,8 @@ export function createInspector(ed) {
           dot,
           h('button', { class: 'zd-lname', onclick: () => ed.switchLayout(i) },
             h('strong', {}, l.name), h('small', {}, l.mediaQuery || 'fallback (always matches)')),
-          h('button', { class: 'zd-btn zd-sm', disabled: i === 0, title: 'Move up (higher priority)', onclick: () => ed.moveLayout(i, -1) }, '↑'),
-          h('button', { class: 'zd-btn zd-sm', disabled: i === layouts.length - 1, title: 'Move down', onclick: () => ed.moveLayout(i, 1) }, '↓'));
+          h('button', { class: 'zd-btn zd-sm', disabled: i === 0, title: 'Move up (higher priority)', onclick: () => ed.moveLayout(i, -1) }, icon('up', 12)),
+          h('button', { class: 'zd-btn zd-sm', disabled: i === layouts.length - 1, title: 'Move down', onclick: () => ed.moveLayout(i, 1) }, icon('down', 12)));
       }));
     }
     refreshMatchList();
@@ -284,5 +319,5 @@ export function createInspector(ed) {
         h('button', { class: 'zd-btn zd-danger', onclick: () => ed.deleteLayout() }, 'Delete layout')));
   }
 
-  return { el: root, render, setTab, syncPosition, getTab: () => tab };
+  return { el: root, render, setTab, syncPosition, getTab: () => tab, focusFirst, refreshLayers: fillLayers };
 }

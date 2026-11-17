@@ -10,7 +10,7 @@
 import { TileFactory } from '../TileFactory.js';
 import { applyGrid, destroyTiles } from '../renderer.js';
 import { fitAllLabels } from '../textFitter.js';
-import { h, clamp } from './dom.js';
+import { h, clamp, icon } from './dom.js';
 
 const HANDLES = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
 const MAX_GRID_CELLS = 4000;
@@ -20,6 +20,10 @@ export function createCanvas(ed) {
   const gridlines = h('div', { class: 'zd-gridlines' });
   const overlay = h('div', { class: 'zd-overlay' });
   const entries = new Map(); // tile object -> { el, inst, cover, error }
+  const emptyHint = h('div', { class: 'zd-empty' },
+    h('strong', {}, 'Empty layout'),
+    h('span', {}, 'Drag on the grid to draw a tile, or use + Tile')) ;
+  overlay.append(emptyHint);
 
   // ------------------------------------------------------------------ geometry
 
@@ -104,15 +108,19 @@ export function createCanvas(ed) {
     const cover = h('div', { class: 'zd-cover' },
       h('span', { class: 'zd-chip' }, ''),
       h('div', { class: 'zd-acts' },
-        h('button', { class: 'zd-act', title: 'Duplicate (Ctrl+D)', onclick: ev => { ev.stopPropagation(); ed.duplicateTile(t); } }, '⧉'),
-        h('button', { class: 'zd-act zd-act-del', title: 'Delete (Del)', onclick: ev => { ev.stopPropagation(); ed.deleteTile(t); } }, '✕')),
+        h('button', { class: 'zd-act', title: 'Duplicate (Ctrl+D)', onclick: ev => { ev.stopPropagation(); ed.duplicateTile(t); } }, icon('copy', 12)),
+        h('button', { class: 'zd-act zd-act-del', title: 'Delete (Del)', onclick: ev => { ev.stopPropagation(); ed.deleteTile(t); } }, icon('x', 12))),
       HANDLES.map(d => h('i', { class: `zd-handle zd-h-${d}`, 'data-h': d })));
     place(cover, t.layout);
     cover.addEventListener('pointerdown', ev => onCoverDown(ev, t));
+    cover.addEventListener('dblclick', () => ed.focusPanel());
+    cover.addEventListener('contextmenu', ev => { ev.preventDefault(); ed.select(t); ed.openContextMenu(ev.clientX, ev.clientY, t); });
+    cover.addEventListener('pointermove', ev => ed.setCursor(cellAt(ev)));
     overlay.append(cover);
 
     entries.set(t, { el, inst, cover, error });
     updateChip(t);
+    applyOrder();
   }
 
   function unmount(t) {
@@ -128,7 +136,7 @@ export function createCanvas(ed) {
     const e = entries.get(t);
     if (!e) return;
     const l = t.layout;
-    e.cover.querySelector('.zd-chip').textContent = `${t.type} · ${l.width}×${l.height}`;
+    e.cover.querySelector('.zd-chip').textContent = `${t.config?.label || t.type} · ${l.width}×${l.height}`;
     e.cover.classList.toggle('zd-error', !!e.error);
   }
 
@@ -155,14 +163,27 @@ export function createCanvas(ed) {
     const wasSelected = old?.cover.classList.contains('zd-selected');
     unmount(t);
     mount(t);
-    if (wasSelected) entries.get(t).cover.classList.add('zd-selected');
+    if (wasSelected) { entries.get(t).cover.classList.add('zd-selected'); applyOrder(); }
     refreshFlags();
     refit();
   }
   function errorOf(t) { return entries.get(t)?.error || null; }
 
+  let selectedTile = null;
   function setSelected(t) {
+    selectedTile = t;
     for (const [tile, e] of entries) e.cover.classList.toggle('zd-selected', tile === t);
+    applyOrder();
+  }
+
+  /** Stacking follows array order (same as DOM order at runtime); the selected cover is raised so its handles stay reachable. */
+  function applyOrder() {
+    const list = ed.layout().tiles;
+    for (const [t, e] of entries) {
+      const z = list.indexOf(t) + 1;
+      e.el.style.zIndex = z;
+      e.cover.style.zIndex = t === selectedTile ? 9000 : z;
+    }
   }
 
   function geometryChanged(t) {
@@ -178,6 +199,7 @@ export function createCanvas(ed) {
   function refreshFlags() {
     const layout = ed.layout();
     const list = layout.tiles;
+    emptyHint.style.display = list.length ? 'none' : 'grid';
     for (const t of list) {
       const e = entries.get(t);
       if (!e) continue;
@@ -197,6 +219,17 @@ export function createCanvas(ed) {
     if (ev.button !== 0 || ev.target.closest('.zd-act')) return;
     ev.preventDefault();
     ev.stopPropagation();
+
+    // Alt+click: cycle through tiles stacked under the pointer.
+    if (ev.altKey) {
+      const stack = document.elementsFromPoint(ev.clientX, ev.clientY).filter(n => n.classList.contains('zd-cover'));
+      if (stack.length > 1) {
+        const cur = stack.findIndex(n => n.classList.contains('zd-selected'));
+        const next = stack[(cur + 1) % stack.length];
+        for (const [tile, e] of entries) if (e.cover === next) { ed.select(tile); return; }
+      }
+    }
+
     ed.select(t);
     const handle = ev.target.closest('[data-h]')?.dataset.h || null;
 
@@ -282,6 +315,9 @@ export function createCanvas(ed) {
     window.addEventListener('pointerup', up);
   });
 
+  overlay.addEventListener('pointermove', ev => ed.setCursor(ev.target === overlay ? cellAt(ev) : cellAt(ev)));
+  overlay.addEventListener('pointerleave', () => ed.setCursor(null));
+
   overlay.addEventListener('dblclick', ev => {
     if (ev.target !== overlay) return;
     const c = cellAt(ev);
@@ -310,6 +346,6 @@ export function createCanvas(ed) {
 
   return {
     renderAll, syncGrid, addTile, removeTile, remountTile, setSelected,
-    geometryChanged, refreshFlags, errorOf, findFreeSpot, refit
+    geometryChanged, refreshFlags, errorOf, findFreeSpot, refit, applyOrder
   };
 }

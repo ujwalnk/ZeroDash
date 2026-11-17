@@ -21,7 +21,7 @@ services:
     profiles: [caddy]
     build:
       context: .
-      dockerfile: dockerfile.caddy
+      dockerfile: Dockerfile.caddy
     ports: ["8080:80"]
     volumes:
       - ../..:/srv:ro

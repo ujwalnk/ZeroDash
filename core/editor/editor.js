@@ -3,7 +3,7 @@
 import { TileFactory } from '../TileFactory.js';
 import { validateLayout } from '../renderer.js';
 import { saveConfig, downloadConfig, ConflictError, CONFIG_URL } from '../configStore.js';
-import { h, clamp } from './dom.js';
+import { h, clamp, icon } from './dom.js';
 import { TILE_TYPES, SCREEN_PRESETS, parseMQ, buildMQ, suggestPreview } from './schema.js';
 import { createCanvas } from './canvas.js';
 import { createInspector } from './inspector.js';
@@ -11,7 +11,7 @@ import { createInspector } from './inspector.js';
 const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 const PREVIEWS = [
-  ['auto', 'Match layout query'],
+  ['auto', 'Auto (from layout query)'],
   ['fit', 'Fill editor area'],
   ...SCREEN_PRESETS.map(p => [p.id, `${p.label} (${p.w}×${p.h})`]),
   ['custom', 'Custom size…']
@@ -29,6 +29,7 @@ export function startEditor({ config, layoutName, container, source }) {
     dirty: false,
     preview: { mode: 'auto', w: 1280, h: 720 },
     zoom: 'fit',
+    grid: true,
     lastKey: null, lastTime: 0
   };
   state.current = Math.max(0, state.draft.layouts.findIndex(l => l.name === layoutName));
@@ -44,7 +45,9 @@ export function startEditor({ config, layoutName, container, source }) {
   stageWrap.append(stage);
   const toolbar = h('header', { class: 'zd-toolbar' });
   const toasts = h('div', { class: 'zd-toasts' });
-  document.body.append(toolbar, workspace, toasts);
+  const statusbar = h('footer', { class: 'zd-statusbar' });
+  document.body.append(toolbar, workspace, statusbar, toasts);
+  let clipboard = null;
 
   const ed = {
     stage,
@@ -53,8 +56,11 @@ export function startEditor({ config, layoutName, container, source }) {
     selected: () => state.selected,
     snapshot, commit, mutate,
     select, addTile, deleteTile, duplicateTile,
-    onGeometry: t => { inspector.syncPosition(); },
-    openTypeMenu, applyStageSize, refreshToolbar,
+    onGeometry: t => { inspector.syncPosition(); setCursor(null, t); },
+    openTypeMenu, openContextMenu, applyStageSize, refreshToolbar,
+    copyTile, pasteTile, moveZ, setCursor,
+    focusPanel: () => inspector.focusFirst(),
+    refreshLayers: () => inspector.refreshLayers(),
     tileError: t => canvas.errorOf(t),
     remountTile: t => canvas.remountTile(t),
     setGrid, switchLayout, moveLayout, duplicateLayout, deleteLayout,
@@ -145,6 +151,7 @@ export function startEditor({ config, layoutName, container, source }) {
     mutate(() => layout.tiles.push(tile));
     canvas.addTile(tile);
     select(tile);
+    inspector.refreshLayers();
     toast(`${def.label} tile added — edit it in the panel`);
   }
 
@@ -153,6 +160,7 @@ export function startEditor({ config, layoutName, container, source }) {
     mutate(() => { layout.tiles.splice(layout.tiles.indexOf(t), 1); });
     canvas.removeTile(t);
     if (state.selected === t) select(null);
+    inspector.refreshLayers();
   }
 
   function duplicateTile(t) {
@@ -165,6 +173,39 @@ export function startEditor({ config, layoutName, container, source }) {
     mutate(() => layout.tiles.push(copy));
     canvas.addTile(copy);
     select(copy);
+    inspector.refreshLayers();
+  }
+
+  function copyTile(t) {
+    clipboard = JSON.parse(JSON.stringify(t));
+    toast('Tile copied. Ctrl+V pastes it into any layout.');
+  }
+
+  function pasteTile() {
+    if (!clipboard) { toast('Nothing copied yet. Select a tile and press Ctrl+C.', 'warn'); return; }
+    const layout = ed.layout();
+    const copy = JSON.parse(JSON.stringify(clipboard));
+    const l = copy.layout;
+    l.width = Math.min(l.width, layout.columns);
+    l.height = Math.min(l.height, layout.rows);
+    const spot = canvas.findFreeSpot(l.width, l.height);
+    if (spot) Object.assign(l, spot);
+    else { l.x = Math.min(l.x, layout.columns - l.width); l.y = Math.min(l.y, layout.rows - l.height); }
+    mutate(() => layout.tiles.push(copy));
+    canvas.addTile(copy);
+    select(copy);
+    inspector.refreshLayers();
+  }
+
+  /** dir: 'front' | 'back' | +1 | -1 — stacking order equals order in the tiles array. */
+  function moveZ(t, dir) {
+    const arr = ed.layout().tiles;
+    const i = arr.indexOf(t);
+    const j = dir === 'front' ? arr.length - 1 : dir === 'back' ? 0 : clamp(i + dir, 0, arr.length - 1);
+    if (i < 0 || i === j) return;
+    mutate(() => { arr.splice(i, 1); arr.splice(j, 0, t); });
+    canvas.applyOrder();
+    inspector.refreshLayers();
   }
 
   // -------------------------------------------------------------------- layouts
@@ -260,7 +301,7 @@ export function startEditor({ config, layoutName, container, source }) {
     if (!size) { w = availW; hgt = availH; }
     else {
       w = size.w; hgt = size.h;
-      if (state.zoom === 'fit') s = Math.min(1, availW / w, availH / hgt);
+      s = state.zoom === 'fit' ? Math.min(1, availW / w, availH / hgt) : Number(state.zoom) / 100;
     }
     stage.style.width = w + 'px';
     stage.style.height = hgt + 'px';
@@ -278,7 +319,7 @@ export function startEditor({ config, layoutName, container, source }) {
     const layouts = state.draft.layouts;
     const active = activeIndexForWindow();
 
-    const layoutSel = h('select', { class: 'zd-sel', title: 'Layout being edited', value: String(state.current) },
+    const layoutSel = h('select', { class: 'zd-sel', title: 'Layout being edited (● = used by this browser window)', value: String(state.current) },
       layouts.map((l, i) => h('option', { value: String(i) }, `${i === active ? '● ' : ''}${l.name}`)));
     layoutSel.addEventListener('change', () => switchLayout(Number(layoutSel.value)));
 
@@ -299,26 +340,37 @@ export function startEditor({ config, layoutName, container, source }) {
       sizeInput('w'), h('span', { class: 'zd-x' }, '×'), sizeInput('h')
     ] : null;
 
-    const zoomSel = h('select', { class: 'zd-sel zd-narrow', title: 'Zoom', value: state.zoom },
-      h('option', { value: 'fit' }, 'Fit'), h('option', { value: '100' }, '100%'));
+    const zoomSel = h('select', { class: 'zd-sel zd-narrow', title: 'Zoom: use 150% or 200% for precise work on dense grids', value: state.zoom },
+      [['fit', 'Fit'], ['100', '100%'], ['150', '150%'], ['200', '200%']].map(([v, l]) => h('option', { value: v }, l)));
     zoomSel.addEventListener('change', () => { state.zoom = zoomSel.value; applyStageSize(); canvas.refit(); });
 
-    undoBtn = h('button', { class: 'zd-tb', title: 'Undo (Ctrl+Z)', onclick: undo }, '↶');
-    redoBtn = h('button', { class: 'zd-tb', title: 'Redo (Ctrl+Shift+Z)', onclick: redo }, '↷');
+    undoBtn = h('button', { class: 'zd-tb zd-icon', title: 'Undo (Ctrl+Z)', onclick: undo }, icon('undo'));
+    redoBtn = h('button', { class: 'zd-tb zd-icon', title: 'Redo (Ctrl+Shift+Z)', onclick: redo }, icon('redo'));
+    const gridBtn = h('button', { class: 'zd-tb zd-icon' + (state.grid ? ' on' : ''), title: 'Show / hide grid lines' }, icon('grid'));
+    gridBtn.addEventListener('click', () => {
+      state.grid = !state.grid;
+      gridBtn.classList.toggle('on', state.grid);
+      stage.classList.toggle('zd-nogrid', !state.grid);
+    });
+    stage.classList.toggle('zd-nogrid', !state.grid);
+
     statusEl = h('span', { class: 'zd-status' });
     saveBtn = h('button', { class: 'zd-tb zd-primary', title: 'Save (Ctrl+S)', onclick: onSave }, 'Save');
 
     toolbar.replaceChildren(
-      h('strong', { class: 'zd-brand' }, '✎ Edit'),
-      h('div', { class: 'zd-group' }, layoutSel,
-        h('button', { class: 'zd-tb', onclick: openNewLayoutDialog, title: 'Create a layout for another screen size' }, '+ Layout')),
-      h('div', { class: 'zd-group' }, previewSel, custom, zoomSel, h('span', { class: 'zd-sizeinfo' })),
+      h('strong', { class: 'zd-brand' }, 'ZeroDash ', h('em', {}, 'editor')),
       h('div', { class: 'zd-group' },
-        h('button', { class: 'zd-tb', id: 'zd-add', onclick: ev => { const r = ev.currentTarget.getBoundingClientRect(); openTypeMenu(r.left, r.bottom + 4, t => addTile(t)); } }, '+ Tile')),
-      h('div', { class: 'zd-group' }, undoBtn, redoBtn),
+        h('label', { class: 'zd-lbl' }, 'Layout'), layoutSel,
+        h('button', { class: 'zd-tb', onclick: openNewLayoutDialog, title: 'Create a layout for another screen size' }, icon('plus'), 'New')),
+      h('div', { class: 'zd-group' },
+        h('label', { class: 'zd-lbl' }, 'Preview'), previewSel, custom, zoomSel, h('span', { class: 'zd-sizeinfo' })),
+      h('div', { class: 'zd-group' },
+        h('button', { class: 'zd-tb zd-accent', id: 'zd-add', onclick: ev => { const r = ev.currentTarget.getBoundingClientRect(); openTypeMenu(r.left, r.bottom + 4, t => addTile(t)); } }, icon('plus'), 'Tile')),
+      h('div', { class: 'zd-group' }, undoBtn, redoBtn, gridBtn,
+        h('button', { class: 'zd-tb zd-icon', title: 'Shortcuts & help (?)', onclick: openHelp }, icon('help'))),
       h('span', { class: 'zd-spacer' }),
       statusEl,
-      h('button', { class: 'zd-tb', title: 'Download dashboard.json', onclick: () => downloadConfig(state.draft) }, 'Export'),
+      h('button', { class: 'zd-tb', title: 'Download dashboard.json', onclick: () => downloadConfig(state.draft) }, icon('download'), 'Export'),
       h('button', { class: 'zd-tb', onclick: onCancel }, 'Close'),
       saveBtn);
     updateButtons();
@@ -338,7 +390,7 @@ export function startEditor({ config, layoutName, container, source }) {
     if (!undoBtn) return;
     undoBtn.disabled = !state.undo.length;
     redoBtn.disabled = !state.redo.length;
-    statusEl.textContent = state.dirty ? '● unsaved changes' : (source === 'config.js' ? 'from config.js (not saved yet)' : 'saved');
+    statusEl.textContent = state.dirty ? 'unsaved changes' : (source === 'config.js' ? 'from config.js (not saved yet)' : 'saved');
     statusEl.classList.toggle('dirty', state.dirty);
   }
 
@@ -346,19 +398,67 @@ export function startEditor({ config, layoutName, container, source }) {
   let openMenu = null;
   function closeMenu() { openMenu?.remove(); openMenu = null; }
 
-  function openTypeMenu(x, y, pick) {
+  /** items: [{ label, hint?, run, danger?, sep? }] */
+  function showMenu(x, y, items, cls = '') {
     closeMenu();
-    const menu = h('div', { class: 'zd-menu' },
-      Object.entries(TILE_TYPES).map(([type, def]) =>
-        h('button', { onclick: () => { closeMenu(); pick(type); } }, h('strong', {}, def.label), h('small', {}, def.hint))));
+    const menu = h('div', { class: 'zd-menu ' + cls },
+      items.map(it => it.sep ? h('hr', {}) :
+        h('button', { class: it.danger ? 'zd-danger' : '', onclick: () => { closeMenu(); it.run(); } },
+          h('strong', {}, it.label), it.hint ? h('small', {}, it.hint) : null)));
     document.body.append(menu);
     const r = menu.getBoundingClientRect();
     menu.style.left = clamp(x, 8, innerWidth - r.width - 8) + 'px';
     menu.style.top = clamp(y, 8, innerHeight - r.height - 8) + 'px';
     openMenu = menu;
-    setTimeout(() => window.addEventListener('pointerdown', function away(e) {
-      if (!menu.contains(e.target)) { closeMenu(); window.removeEventListener('pointerdown', away, true); }
+    setTimeout(() => window.addEventListener('pointerdown', function away(ev) {
+      if (!menu.contains(ev.target)) { closeMenu(); window.removeEventListener('pointerdown', away, true); }
     }, true), 0);
+  }
+
+  function openTypeMenu(x, y, pick) {
+    showMenu(x, y, Object.entries(TILE_TYPES).map(([type, def]) => ({ label: def.label, hint: def.hint, run: () => pick(type) })));
+  }
+
+  function openContextMenu(x, y, t) {
+    showMenu(x, y, [
+      { label: 'Duplicate', hint: 'Ctrl+D', run: () => duplicateTile(t) },
+      { label: 'Copy', hint: 'Ctrl+C — paste into any layout', run: () => copyTile(t) },
+      { sep: true },
+      { label: 'Bring to front', hint: ']  (one step; Shift+] to the top)', run: () => moveZ(t, 'front') },
+      { label: 'Send to back', hint: '[  (one step; Shift+[ to the bottom)', run: () => moveZ(t, 'back') },
+      { sep: true },
+      { label: 'Delete', hint: 'Del', danger: true, run: () => deleteTile(t) }
+    ], 'zd-ctx');
+  }
+
+  const HINT = 'Drag on empty cells to draw a tile  ·  Alt+click cycles overlapped tiles  ·  Right-click for more  ·  ? for shortcuts';
+  function setCursor(c, tile) {
+    if (!c && !tile) { statusbar.replaceChildren(h('span', { class: 'zd-hint' }, HINT)); return; }
+    const l = ed.layout();
+    const under = tile || (c && [...l.tiles].reverse().find(t =>
+      c.x >= t.layout.x && c.x < t.layout.x + t.layout.width && c.y >= t.layout.y && c.y < t.layout.y + t.layout.height));
+    statusbar.replaceChildren(
+      c ? h('strong', {}, `Col ${c.x + 1}, Row ${c.y + 1}`) : null,
+      under ? h('span', {}, `${c ? '  ·  ' : ''}${under.config.label || under.type} (${under.type})  ${under.layout.width}×${under.layout.height} at ${under.layout.x + 1},${under.layout.y + 1}`) : null,
+      h('span', { class: 'zd-hint' }, `    ${HINT}`));
+  }
+
+  function openHelp() {
+    const rows = [
+      ['Draw a tile', 'Drag over empty cells'],
+      ['1×1 tile', 'Double-click an empty cell'],
+      ['Move / resize', 'Drag the tile / its handles'],
+      ['Nudge / resize by 1', '← ↑ → ↓  /  Shift + arrows'],
+      ['Pick an overlapped tile', 'Alt+click (repeat to cycle), or use the Layers list'],
+      ['Edit a tile’s label', 'Double-click the tile'],
+      ['Stack order', '] forward, [ back, Shift+] / Shift+[ to top/bottom'],
+      ['Duplicate / Copy / Paste', 'Ctrl+D / Ctrl+C / Ctrl+V (paste works across layouts)'],
+      ['Delete', 'Delete or Backspace'],
+      ['Undo / Redo', 'Ctrl+Z / Ctrl+Shift+Z'],
+      ['Save', 'Ctrl+S'],
+      ['Deselect / close menu', 'Esc']
+    ];
+    dialog('Shortcuts', h('table', { class: 'zd-help' }, rows.map(([a, b]) => h('tr', {}, h('th', {}, a), h('td', {}, b)))), [{ label: 'Close', primary: true }]);
   }
 
   function dialog(title, body, actions) {
@@ -505,10 +605,15 @@ export function startEditor({ config, layoutName, container, source }) {
     if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
     if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
     if (e.key === 'Escape') { closeMenu(); select(null); return; }
+    if (e.key === '?') { openHelp(); return; }
+    if (mod && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteTile(); return; }
 
     const t = state.selected;
     if (!t) return;
     if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateTile(t); return; }
+    if (mod && e.key.toLowerCase() === 'c') { e.preventDefault(); copyTile(t); return; }
+    if (e.key === ']' || e.key === '}') { e.preventDefault(); moveZ(t, e.shiftKey ? 'front' : 1); return; }
+    if (e.key === '[' || e.key === '{') { e.preventDefault(); moveZ(t, e.shiftKey ? 'back' : -1); return; }
     if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteTile(t); return; }
 
     const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
@@ -544,6 +649,7 @@ export function startEditor({ config, layoutName, container, source }) {
   }
 
   state.preview.mode = 'auto';
+  setCursor(null);
   fullRender();
   if (source === 'config.js') {
     toast('Editing the layout from user/config.js. Saving creates user/data/dashboard.json, which then takes over.', 'info', 7000);
