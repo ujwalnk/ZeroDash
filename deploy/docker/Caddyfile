@@ -1,0 +1,29 @@
+# ZeroDash — Caddy config for the Docker image (needs the caddy-webdav build, see Dockerfile.caddy).
+# NOT TESTED: the webdav module could not be built in the sandbox this was written in.
+{
+	order webdav before file_server
+}
+
+:80 {
+	root * /srv
+
+	@save {
+		method PUT
+		path /user/data/*
+	}
+	handle @save {
+		basic_auth {
+			# user  hash  — generate with:
+			#   docker run --rm caddy caddy hash-password --plaintext 'your-password'
+			admin $2a$14$tXOVcxG5TUPBBBH0lwF4Ie4n6OtE5ps9xD.iZVI01sHly8PGOww.. # This is just a hash of your-password for testing purposes
+		}
+		webdav {
+			root /srv
+		}
+	}
+
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}

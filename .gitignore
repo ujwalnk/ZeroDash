@@ -9,3 +9,5 @@ user/config.js
 user/link.js
 user/widget.js
 ZeroDash-context.zip
+user/data/dashboard.json
+user/data/dashboard.json.bak
