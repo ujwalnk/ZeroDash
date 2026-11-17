@@ -21,6 +21,6 @@ zip -r "$OUT" . \
 echo
 echo "Created: $(cd .. && pwd)/${PROJECT_NAME}-context.zip"
 echo "Contents:"
-unzip -l "$OUT" | tail -n +4 | head -n 2
+unzip -l "$OUT" | tail -n +4 | head -n -2
 echo
 echo "Reminder: check user/ for API keys, tokens or personal data before sharing."

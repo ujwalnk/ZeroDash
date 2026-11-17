@@ -1,6 +1,27 @@
 import { TileFactory } from './TileFactory.js';
 import { fitAllLabels } from './textFitter.js';
 
+let activeTiles = [];
+
+/**
+ * Stop timers owned by tiles of the previous render (widget refresh etc.).
+ */
+export function destroyTiles() {
+  for (const { tile } of activeTiles) {
+    try { tile.destroy?.(); } catch { /* ignore */ }
+  }
+  activeTiles = [];
+}
+
+export function applyGrid(container, layout) {
+  container.style.display = 'grid';
+  container.style.gridTemplateRows = `repeat(${layout.rows}, 1fr)`;
+  container.style.gridTemplateColumns = `repeat(${layout.columns}, 1fr)`;
+  container.style.gap = '10px';
+  container.style.width = '100%';
+  container.style.height = '100%';
+}
+
 export function renderLayout(layout, container) {
   if (!layout || typeof layout !== 'object') {
     throw new Error('Layout must be an object');
@@ -9,21 +30,18 @@ export function renderLayout(layout, container) {
   // Validate layout structure strictly
   validateLayout(layout);
 
+  destroyTiles();
+
   // Clear container
   container.innerHTML = '';
 
   // Set up CSS Grid
-  container.style.display = 'grid';
-  container.style.gridTemplateRows = `repeat(${layout.rows}, 1fr)`;
-  container.style.gridTemplateColumns = `repeat(${layout.columns}, 1fr)`;
-  container.style.gap = '10px';
-  container.style.width = '100%';
-  container.style.height = '100%';
+  applyGrid(container, layout);
 
   // Create and render tiles
   if (Array.isArray(layout.tiles)) {
-    TileFactory.createAll(layout.tiles, container);
-    
+    activeTiles = TileFactory.createAll(layout.tiles, container);
+
     // Apply text fitting after tiles are rendered
     // Use requestAnimationFrame to ensure DOM is fully laid out
     requestAnimationFrame(() => {
@@ -32,11 +50,11 @@ export function renderLayout(layout, container) {
   }
 }
 
-function validateLayout(layout) {
+export function validateLayout(layout) {
   const allowedKeys = ['name', 'mediaQuery', 'rows', 'columns', 'tiles'];
   const keys = Object.keys(layout);
   const unknownKeys = keys.filter(key => !allowedKeys.includes(key));
-  
+
   if (unknownKeys.length > 0) {
     throw new Error(`Unknown keys in layout: ${unknownKeys.join(', ')}`);
   }
@@ -61,4 +79,3 @@ function validateLayout(layout) {
     throw new Error('Layout tiles must be an array');
   }
 }
-

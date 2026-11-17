@@ -1,0 +1,23 @@
+# ZeroDash on Caddy — UNTESTED sketch.
+# Caddy has no built-in PUT, so the editor needs the caddy-webdav module:
+#   xcaddy build --with github.com/mholt/caddy-webdav
+{
+	order webdav before file_server
+}
+
+:80 {
+	root * /srv/zerodash
+
+	# Writes only to the config directory, only from trusted networks.
+	@save {
+		method PUT
+		path /user/data/*
+		remote_ip 127.0.0.1 192.168.0.0/16 10.0.0.0/8 100.64.0.0/10
+	}
+	webdav @save {
+		root /srv/zerodash
+	}
+
+	try_files {path} /index.html
+	file_server
+}

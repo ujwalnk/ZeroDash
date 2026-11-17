@@ -1,4 +1,4 @@
-import { dashboardConfig } from './user/config.js';
+import { loadConfig } from './core/configStore.js';
 import { selectLayout } from './core/layoutSelector.js';
 import { renderLayout } from './core/renderer.js';
 import { fitAllLabels } from './core/textFitter.js';
@@ -6,8 +6,10 @@ import { createDevOverlay, updateDevOverlay } from './core/devOverlay.js';
 import { initSearch } from './core/search.js';
 import { searchConfig } from './user/searchConfig.js';
 
-function init() {
+async function init() {
   try {
+    const { config: dashboardConfig, source } = await loadConfig();
+
     // Validate root config structure
     if (!dashboardConfig || typeof dashboardConfig !== 'object') {
       throw new Error('Dashboard config must be an object');
@@ -47,11 +49,21 @@ function init() {
     // Initialize global search
     const searchEngine = initSearch(dashboardConfig, searchConfig);
 
+    // Edit button (editor code is only downloaded when it is clicked)
+    mountEditButton(() => import('./core/editor/editor.js').then(m => {
+      document.getElementById('zd-edit-btn')?.remove();
+      document.getElementById('dev-overlay')?.remove();
+      document.getElementById('dev-overlay-menu')?.remove();
+      m.startEditor({ config: dashboardConfig, layoutName: currentLayoutName, container, source });
+    }));
+    if (location.hash === '#edit') document.getElementById('zd-edit-btn')?.click();
+
     // Handle window resize for media query changes and text fitting
     let resizeTimeout;
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
+        if (document.body.classList.contains('zd-editing')) return; // editor manages its own stage
         // Update overlay size immediately
         updateDevOverlay(devOverlay, currentLayoutName);
 
@@ -89,6 +101,17 @@ function init() {
       container.innerHTML = `<div style="padding: 20px; color: red; font-size: 1.2em;">Fatal Error: ${error.message}</div>`;
     }
   }
+}
+
+function mountEditButton(onClick) {
+  const btn = document.createElement('button');
+  btn.id = 'zd-edit-btn';
+  btn.type = 'button';
+  btn.title = 'Edit dashboard';
+  btn.setAttribute('aria-label', 'Edit dashboard');
+  btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+  btn.addEventListener('click', onClick);
+  document.body.appendChild(btn);
 }
 
 function getUrlOverride() {

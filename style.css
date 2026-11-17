@@ -229,3 +229,23 @@ body {
 .search-result:last-child {
   border-bottom: none;
 }
+
+/* ---- Edit button (top-right). Editor code/CSS load only when clicked. ---- */
+#zd-edit-btn {
+  position: fixed;
+  top: 6px;
+  right: 6px;
+  z-index: 9000;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0.18;
+  transition: opacity 0.15s;
+}
+#zd-edit-btn:hover, #zd-edit-btn:focus-visible { opacity: 1; }
