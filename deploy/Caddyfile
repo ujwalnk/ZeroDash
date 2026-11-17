@@ -1,4 +1,6 @@
-# ZeroDash on Caddy — UNTESTED sketch.
+# ZeroDash on Caddy — Static serving + editor loading tested on Caddy 2.6; the webdav write step could NOT be tested
+# (module download blocked in my sandbox). The editor verifies every save by reading the file back,
+# so a misconfigured write path shows an error instead of silently failing.
 # Caddy has no built-in PUT, so the editor needs the caddy-webdav module:
 #   xcaddy build --with github.com/mholt/caddy-webdav
 {

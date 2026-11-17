@@ -240,7 +240,7 @@ Serving needs one writable directory and one nginx location — see [`deploy/ngi
 mkdir -p user/data && chown nginx:nginx user/data   # www-data on Debian/Ubuntu
 ```
 
-The `PUT` location is restricted to trusted networks (or a password). The editor button itself is only UI; the server rule is what protects the config. A Caddy sketch (needs `caddy-webdav`, untested) is in [`deploy/Caddyfile`](deploy/Caddyfile).
+The `PUT` location is restricted to trusted networks (or a password). The editor button itself is only UI; the server rule is what protects the config. A Caddy sketch (needs `caddy-webdav`; the write step is untested) is in [`deploy/Caddyfile`](deploy/Caddyfile).
 
 ---
 

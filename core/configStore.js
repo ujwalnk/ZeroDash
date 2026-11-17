@@ -97,10 +97,21 @@ export async function saveConfig(config, { force = false } = {}) {
     throw new SaveError(explain(res.status), res.status);
   }
 
+  // Trust, but verify: some servers answer PUT with 200 without storing anything
+  // (e.g. a static server with an SPA fallback). Read the file back.
+  let check;
   try {
-    const check = await fetch(CONFIG_URL, { method: 'HEAD', cache: 'no-store' });
-    loadedLastModified = check.headers.get('Last-Modified') || loadedLastModified;
-  } catch { /* ignore */ }
+    check = await fetch(CONFIG_URL, { cache: 'no-store' });
+  } catch (err) {
+    throw new SaveError(`Saved, but could not read the file back: ${err.message}`, 0);
+  }
+  const echoed = check.ok ? await check.text() : '';
+  if (echoed !== body) {
+    throw new SaveError(
+      'The server answered the save request but did not store the file. ' +
+      'Write support (PUT) is probably not enabled for ' + CONFIG_URL + ' (see deploy/nginx.conf or deploy/Caddyfile).', 0);
+  }
+  loadedLastModified = check.headers.get('Last-Modified') || loadedLastModified;
 }
 
 function explain(status) {
