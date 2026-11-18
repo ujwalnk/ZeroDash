@@ -1,5 +1,9 @@
+import { resolveUrl } from '../core/urlResolver.js';
+
 export function renderButton(container, config) {
-  const { image, label, url, method, payload } = config;
+  const { label, method, payload } = config;
+  const image = resolveUrl(config.image);
+  const url = resolveUrl(config.url);
   
   container.style.display = 'flex';
   container.style.flexDirection = 'column';

@@ -9,6 +9,8 @@
  * - DISMISSING: Overlay removed, state reset, return to IDLE
  */
 
+import { resolveUrl } from './urlResolver.js';
+
 /** Tile types a search prefix can filter by. */
 export const SEARCH_TYPES = Object.freeze(['application', 'link', 'button', 'toggle', 'widget']);
 
@@ -591,13 +593,13 @@ export class SearchEngine {
     
     // Applications, Links, and Buttons have 'image' property
     if (['application', 'link', 'button'].includes(type) && config.image) {
-      return config.image;
+      return resolveUrl(config.image);
     }
     
     // Toggles have image URLs in targetUrl
     if (type === 'toggle' && config.targetUrl) {
       // Return the true state image as default (can be either trueImage or falseImage)
-      return config.targetUrl.trueImage || config.targetUrl.falseImage;
+      return resolveUrl(config.targetUrl.trueImage || config.targetUrl.falseImage);
     }
     
     return null;
@@ -668,7 +670,7 @@ export class SearchEngine {
       case 'application':
       case 'link':
         // Navigate to URL
-        window.open(config.url, config.target === 'new' ? '_blank' : '_self');
+        window.open(resolveUrl(config.url), config.target === 'new' ? '_blank' : '_self');
         break;
         
       case 'button':
@@ -690,7 +692,8 @@ export class SearchEngine {
    * Execute a button tile action
    */
   async executeButtonAction(config) {
-    const { url, method, payload } = config;
+    const { method, payload } = config;
+    const url = resolveUrl(config.url);
     
     const options = {
       method: method || 'GET',
@@ -718,7 +721,9 @@ export class SearchEngine {
    * For now, just toggle between true and false URLs
    */
   async executeToggleAction(config) {
-    const { method, payload, statusCheckUrl, targetUrl } = config;
+    const { method, payload } = config;
+    const statusCheckUrl = resolveUrl(config.statusCheckUrl);
+    const targetUrl = { trueUrl: resolveUrl(config.targetUrl.trueUrl), falseUrl: resolveUrl(config.targetUrl.falseUrl) };
     
     try {
       // Fetch current status

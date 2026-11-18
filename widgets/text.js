@@ -1,3 +1,5 @@
+import { resolveUrl } from '../core/urlResolver.js';
+
 // widgets/text.js — static text, or text pulled from any URL ("webhook").
 //
 // Rendering uses textContent only: whatever a remote server returns is shown as text, never as HTML.
@@ -25,7 +27,8 @@ function fillTemplate(template, bodyText, json) {
 }
 
 export function renderText(tileElement, config) {
-  const { text, url, method = 'GET', payload, jsonPath, refreshInterval = 0, css } = config;
+  const { text, method = 'GET', payload, jsonPath, refreshInterval = 0, css } = config;
+  const url = resolveUrl(config.url);
 
   tileElement.classList.add('tile-text');
 

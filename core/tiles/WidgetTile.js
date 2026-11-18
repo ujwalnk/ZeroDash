@@ -1,3 +1,4 @@
+import { resolveUrl } from '../urlResolver.js';
 import { Tile } from './Tile.js';
 
 export class WidgetTile extends Tile {
@@ -32,7 +33,7 @@ export class WidgetTile extends Tile {
     const tileElement = super.render(container);
     
     const iframe = document.createElement('iframe');
-    iframe.src = this.config.url;
+    iframe.src = resolveUrl(this.config.url);
     iframe.style.width = '100%';
     iframe.style.height = '100%';
     iframe.style.border = 'none';

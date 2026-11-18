@@ -2,6 +2,7 @@
 // (the validators remain the source of truth — the editor runs them on every change).
 
 const EX = 'https://example.com/';
+const VAR = "Use $ for this dashboard's own host, e.g. $:5003 or https://$:8443/app. Without a $ the URL is used as written.";
 
 export const TILE_TYPES = {
   application: {
@@ -12,10 +13,10 @@ export const TILE_TYPES = {
     fields: [
       { key: 'label', label: 'Label', kind: 'text' },
       { key: 'image', optional: true, label: 'Icon', kind: 'image' },
-      { key: 'url', label: 'URL', kind: 'text' },
+      { key: 'url', label: 'URL', kind: 'text', help: VAR },
       { key: 'target', label: 'Open in', kind: 'select', optional: true,
         options: [['same', 'Same tab'], ['new', 'New tab']] },
-      { key: 'availabilityUrl', optional: true, label: 'Availability check URL', kind: 'text', help: 'Defaults to the URL' }
+      { key: 'availabilityUrl', optional: true, label: 'Availability check URL', kind: 'text', help: 'Defaults to the URL. ' + VAR }
     ]
   },
   link: {
@@ -26,7 +27,7 @@ export const TILE_TYPES = {
     fields: [
       { key: 'label', label: 'Label', kind: 'text' },
       { key: 'image', optional: true, label: 'Icon', kind: 'image' },
-      { key: 'url', label: 'URL', kind: 'text' },
+      { key: 'url', label: 'URL', kind: 'text', help: VAR },
       { key: 'target', label: 'Open in', kind: 'select',
         options: [['same', 'Same tab'], ['new', 'New tab']] },
       { key: 'statusCheckUrl', optional: true, label: 'Status check URL', kind: 'text' }
@@ -40,7 +41,7 @@ export const TILE_TYPES = {
     fields: [
       { key: 'label', label: 'Label', kind: 'text' },
       { key: 'image', optional: true, label: 'Icon', kind: 'image' },
-      { key: 'url', label: 'Request URL', kind: 'text' },
+      { key: 'url', label: 'Request URL', kind: 'text', help: VAR },
       { key: 'method', label: 'Method', kind: 'select', options: [['GET', 'GET'], ['POST', 'POST']] },
       { key: 'payload', label: 'JSON payload', kind: 'json' }
     ]
@@ -64,9 +65,9 @@ export const TILE_TYPES = {
     fields: [
       { key: 'label', label: 'Label', kind: 'text' },
       { key: 'displayLabel', label: 'Show label', kind: 'bool' },
-      { key: 'statusCheckUrl', label: 'Status URL', kind: 'text' },
-      { key: 'targetUrl.trueUrl', label: 'URL when turning on', kind: 'text' },
-      { key: 'targetUrl.falseUrl', label: 'URL when turning off', kind: 'text' },
+      { key: 'statusCheckUrl', label: 'Status URL', kind: 'text', help: VAR },
+      { key: 'targetUrl.trueUrl', label: 'URL when turning on', kind: 'text', help: VAR },
+      { key: 'targetUrl.falseUrl', label: 'URL when turning off', kind: 'text', help: VAR },
       { key: 'targetUrl.trueImage', label: 'On icon', kind: 'image' },
       { key: 'targetUrl.falseImage', label: 'Off icon', kind: 'image' },
       { key: 'method', label: 'Method', kind: 'select', options: [['GET', 'GET'], ['POST', 'POST']] },
@@ -80,7 +81,7 @@ export const TILE_TYPES = {
     size: [3, 2],
     defaults: () => ({ url: 'about:blank', RefreshInterval: 0 }),
     fields: [
-      { key: 'url', label: 'Page URL', kind: 'text' },
+      { key: 'url', label: 'Page URL', kind: 'text', help: VAR },
       { key: 'RefreshInterval', label: 'Refresh every (seconds)', kind: 'number', min: 0, help: '0 = never' }
     ]
   },
@@ -93,7 +94,7 @@ export const TILE_TYPES = {
       { key: 'text', label: 'Text', kind: 'textarea', optional: true, rows: 3,
         help: 'With a URL below, use {{path}} for values from a JSON response ({{data.items[0].name}}) or {{$}} for the whole response.' },
       { key: 'url', label: 'Fetch from URL', kind: 'text', optional: true,
-        help: 'Optional. The response is shown as text. The server must allow cross-origin requests (CORS).' },
+        help: 'Optional. The response is shown as text. The server must allow cross-origin requests (CORS). ' + VAR },
       { key: 'method', label: 'Method', kind: 'select', optional: true, options: [['GET', 'GET'], ['POST', 'POST']] },
       { key: 'payload', label: 'JSON payload', kind: 'json' },
       { key: 'jsonPath', label: 'JSON path', kind: 'text', optional: true, help: 'e.g. main.temp. Used when Text is empty.' },
@@ -108,7 +109,7 @@ export const TILE_TYPES = {
     size: [2, 1],
     defaults: () => ({ targetUrl: EX, method: 'GET' }),
     fields: [
-      { key: 'targetUrl', label: 'URL', kind: 'text' },
+      { key: 'targetUrl', label: 'URL', kind: 'text', help: VAR },
       { key: 'method', label: 'Method', kind: 'select', options: [['GET', 'GET'], ['POST', 'POST']] },
       { key: 'payload', label: 'JSON payload', kind: 'json' },
       { key: 'statusCheckUrl', optional: true, label: 'Status check URL', kind: 'text' }

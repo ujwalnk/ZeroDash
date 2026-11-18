@@ -1,8 +1,17 @@
+import { resolveUrl } from '../core/urlResolver.js';
+
 // Global registry for toggle instances grouped by tag
 const toggleRegistry = new Map(); // tag -> Set of { container, fetchStatus }
 
 export function renderToggle(container, config) {
-  const { label, displayLabel, method, payload, targetUrl, statusCheckUrl, tag } = config;
+  const { label, displayLabel, method, payload, tag } = config;
+  const statusCheckUrl = resolveUrl(config.statusCheckUrl);
+  const targetUrl = {
+    trueUrl: resolveUrl(config.targetUrl.trueUrl),
+    falseUrl: resolveUrl(config.targetUrl.falseUrl),
+    trueImage: resolveUrl(config.targetUrl.trueImage),
+    falseImage: resolveUrl(config.targetUrl.falseImage)
+  };
   
   container.style.display = 'flex';
   container.style.flexDirection = 'column';

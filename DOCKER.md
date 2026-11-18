@@ -46,6 +46,26 @@ file is never touched. To move an existing setup into the container, mount the d
 - Edit `dashboard.json` by hand if you like; the page picks it up on refresh. If the file is not valid JSON the page
   shows an error instead of replacing it, and the last good copy is in `dashboard.json.bak`.
 
+## Tile URLs: `$` means "this dashboard's host"
+
+In any tile URL (application, link, button, toggle, webhook, text, widget, status checks and icons), a `$` in the
+host position is replaced with the host the dashboard is opened from. The same `dashboard.json` then works whether
+you reach the dashboard as `xyz.com`, `192.168.1.1` or a Tailscale name.
+
+| Dashboard opened at | Tile URL | Used URL |
+| --- | --- | --- |
+| `http://xyz.com` | `$:5003` | `http://xyz.com:5003` |
+| `http://192.168.1.1:8080` | `$:5003` | `http://192.168.1.1:5003` |
+| `https://xyz.com` | `$:5003` | `https://xyz.com:5003` |
+| any | `https://$:8443/app` | `https://<host>:8443/app` |
+| any | `https://example.com/` | unchanged (no `$`, static URL) |
+
+- `$` is the host name only; the dashboard's own port is not copied.
+- Without a scheme the dashboard's own scheme (`http`/`https`) is used. Write the scheme to override it, and
+  remember that an `https` dashboard cannot call plain `http` services from the browser (mixed content).
+- A `$` anywhere else in a URL (path, query string) is left alone, so static URLs never change by accident.
+- The `$` stays in `dashboard.json`; it is resolved in the browser each time a URL is used.
+
 ## Who can edit?
 
 Anyone can *view* the dashboard. Saving is a `PUT` to `/user/data/`, controlled by one optional setting:

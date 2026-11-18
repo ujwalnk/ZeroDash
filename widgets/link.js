@@ -1,5 +1,10 @@
+import { resolveUrl } from '../core/urlResolver.js';
+
 export function renderLink(container, config) {
-  const { image, label, url, target, statusCheckUrl } = config;
+  const { label, target } = config;
+  const image = resolveUrl(config.image);
+  const url = resolveUrl(config.url);
+  const statusCheckUrl = resolveUrl(config.statusCheckUrl);
   
   container.style.display = 'flex';
   container.style.flexDirection = 'column';

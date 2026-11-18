@@ -1,5 +1,9 @@
+import { resolveUrl } from '../core/urlResolver.js';
+
 export function renderWebhook(container, config) {
-  const { targetUrl, method, payload, statusCheckUrl } = config;
+  const { method, payload } = config;
+  const targetUrl = resolveUrl(config.targetUrl);
+  const statusCheckUrl = resolveUrl(config.statusCheckUrl);
   
   const contentDiv = document.createElement('div');
   contentDiv.className = 'webhook-content';
