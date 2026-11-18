@@ -7,6 +7,7 @@ import { h, clamp, icon } from './dom.js';
 import { TILE_TYPES, SCREEN_PRESETS, parseMQ, buildMQ, suggestPreview } from './schema.js';
 import { createCanvas } from './canvas.js';
 import { createInspector } from './inspector.js';
+import { DEFAULT_SEARCH_PREFIXES, SEARCH_TYPES } from '../search.js';
 
 const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
@@ -65,7 +66,8 @@ export function startEditor({ config, layoutName, container, source }) {
     tileError: t => canvas.errorOf(t),
     remountTile: t => canvas.remountTile(t),
     setGrid, switchLayout, moveLayout, duplicateLayout, deleteLayout,
-    nameError, activeIndexForWindow
+    nameError, activeIndexForWindow,
+    getSearchPrefixes, setSearchPrefixes
   };
   const canvas = createCanvas(ed);
   const inspector = createInspector(ed);
@@ -226,6 +228,24 @@ export function startEditor({ config, layoutName, container, source }) {
     const layout = ed.layout();
     mutate(() => { if (v) layout.background = v; else delete layout.background; }, 'bg');
     canvas.syncGrid();
+  }
+
+  // Search prefixes are dashboard-wide: stored as draft.search.prefixes, omitted while equal to the defaults.
+  function samePrefixes(a, b) {
+    const ka = Object.keys(a), kb = Object.keys(b);
+    return ka.length === kb.length && ka.every(k => Object.hasOwn(b, k) &&
+      a[k].length === b[k].length && a[k].every(t => b[k].includes(t)));
+  }
+
+  function getSearchPrefixes() {
+    return JSON.parse(JSON.stringify(state.draft.search?.prefixes ?? DEFAULT_SEARCH_PREFIXES));
+  }
+
+  function setSearchPrefixes(prefixes) {
+    mutate(() => {
+      if (samePrefixes(prefixes, DEFAULT_SEARCH_PREFIXES)) delete state.draft.search;
+      else state.draft.search = { prefixes };
+    }, 'search');
   }
 
   /** dir: 'front' | 'back' | +1 | -1 — stacking order equals order in the tiles array. */
@@ -421,7 +441,7 @@ export function startEditor({ config, layoutName, container, source }) {
     if (!undoBtn) return;
     undoBtn.disabled = !state.undo.length;
     redoBtn.disabled = !state.redo.length;
-    statusEl.textContent = state.dirty ? 'unsaved changes' : (source === 'config.js' ? 'from config.js (not saved yet)' : 'saved');
+    statusEl.textContent = state.dirty ? 'unsaved changes' : (source === 'default' ? 'new dashboard (not saved yet)' : 'saved');
     statusEl.classList.toggle('dirty', state.dirty);
   }
 
@@ -575,6 +595,16 @@ export function startEditor({ config, layoutName, container, source }) {
         catch (e) { errors.push(`Layout "${l.name}", tile ${i + 1} (${t.type}): ${e.message}`); }
       });
     }
+    const sp = state.draft.search;
+    if (sp !== undefined) {
+      if (!sp || typeof sp !== 'object' || Array.isArray(sp)) errors.push('Search settings must be an object');
+      else for (const [k, types] of Object.entries(sp.prefixes ?? {})) {
+        if ([...k].length !== 1 || /[\p{L}\p{N}\s]/u.test(k)) errors.push(`Search prefix "${k}" must be a single symbol (not a letter, digit or space)`);
+        if (!Array.isArray(types) || !types.length || !types.every(t => SEARCH_TYPES.includes(t))) {
+          errors.push(`Search prefix "${k}" needs at least one tile type (${SEARCH_TYPES.join(', ')})`);
+        }
+      }
+    }
     if (!state.draft.layouts.some(l => !l.mediaQuery)) {
       warnings.push('No layout is a fallback (empty media query). Screens that match no layout will show an error instead of the dashboard.');
     }
@@ -682,7 +712,7 @@ export function startEditor({ config, layoutName, container, source }) {
   state.preview.mode = 'auto';
   setCursor(null);
   fullRender();
-  if (source === 'config.js') {
-    toast('Editing the layout from user/config.js. Saving creates user/data/dashboard.json, which then takes over.', 'info', 7000);
+  if (source === 'default') {
+    toast('No dashboard file found yet, starting with an empty dashboard. Saving creates ' + CONFIG_URL + '.', 'info', 7000);
   }
 }

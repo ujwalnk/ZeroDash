@@ -9,22 +9,31 @@
  * - DISMISSING: Overlay removed, state reset, return to IDLE
  */
 
+/** Tile types a search prefix can filter by. */
+export const SEARCH_TYPES = Object.freeze(['application', 'link', 'button', 'toggle', 'widget']);
+
+/** Prefix shortcuts used when the dashboard config has no `search.prefixes`. */
+export const DEFAULT_SEARCH_PREFIXES = Object.freeze({
+  '@': ['application'],
+  '#': ['application', 'link'],
+  '/': ['button'],
+  '.': ['toggle']
+});
+
 export class SearchEngine {
+  /**
+   * @param dashboardConfig the loaded dashboard.json
+   * @param searchConfig    dashboardConfig.search, e.g. { prefixes: { "@": ["application"] } }
+   *                        If `prefixes` is present it replaces the defaults entirely.
+   */
   constructor(dashboardConfig, searchConfig = {}) {
     this.dashboardConfig = dashboardConfig;
     this.searchConfig = searchConfig;
-    
-    // Default prefix configuration
-    this.defaultPrefixes = {
-      '@': ['application'],
-      '#': ['application', 'link'],
-      '/': ['button'],
-      '.': ['toggle']
-    };
-    
-    // Merge custom prefixes with defaults
-    this.prefixes = { ...this.defaultPrefixes, ...searchConfig.prefixes };
-    
+
+    // Copy so validatePrefixes() can delete bad entries without touching the config or the defaults
+    const source = searchConfig.prefixes ?? DEFAULT_SEARCH_PREFIXES;
+    this.prefixes = Object.fromEntries(Object.entries(source).map(([k, v]) => [k, Array.isArray(v) ? [...v] : v]));
+
     // Validate prefixes
     this.validatePrefixes();
     
@@ -54,7 +63,7 @@ export class SearchEngine {
    * Validate prefix configuration
    */
   validatePrefixes() {
-    const allowedTypes = ['application', 'link', 'button', 'toggle', 'widget'];
+    const allowedTypes = SEARCH_TYPES;
     
     for (const [prefix, types] of Object.entries(this.prefixes)) {
       if (!Array.isArray(types)) {

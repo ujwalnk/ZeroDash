@@ -1,0 +1,20 @@
+{
+  "layouts": [
+    {
+      "name": "default",
+      "rows": 4,
+      "columns": 6,
+      "tiles": [
+        {
+          "type": "application",
+          "layout": { "x": 0, "y": 0, "width": 2, "height": 2 },
+          "config": {
+            "label": "Click the pencil to edit",
+            "url": "https://example.com",
+            "target": "new"
+          }
+        }
+      ]
+    }
+  ]
+}

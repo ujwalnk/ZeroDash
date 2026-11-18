@@ -2,6 +2,7 @@
 
 import { h, getPath, setPath, clamp, icon } from './dom.js';
 import { TILE_TYPES, parseMQ, buildMQ } from './schema.js';
+import { DEFAULT_SEARCH_PREFIXES, SEARCH_TYPES } from '../search.js';
 
 const ICON_CDN = 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons';
 
@@ -385,7 +386,71 @@ export function createInspector(ed) {
       list,
       h('div', { class: 'zd-row' },
         h('button', { class: 'zd-btn', onclick: () => ed.duplicateLayout() }, 'Duplicate layout'),
-        h('button', { class: 'zd-btn zd-danger', onclick: () => ed.deleteLayout() }, 'Delete layout')));
+        h('button', { class: 'zd-btn zd-danger', onclick: () => ed.deleteLayout() }, 'Delete layout')),
+      h('div', { class: 'zd-sec' }, 'Search shortcuts (all layouts)'),
+      searchSection());
+  }
+
+  // Dashboard-wide search prefixes: typing "@" first in the search box limits results to the ticked tile types.
+  function searchSection() {
+    const err = h('small', { class: 'zd-bad' });
+    const box = h('div', { class: 'zd-prefs' });
+    const validKey = c => [...c].length === 1 && !/[\p{L}\p{N}\s]/u.test(c);
+    const save = next => { ed.setSearchPrefixes(next); draw(); };
+
+    function draw() {
+      const prefixes = ed.getSearchPrefixes();
+
+      const rows = Object.entries(prefixes).map(([p, types]) => {
+        const key = h('input', { type: 'text', value: p, maxlength: 2, spellcheck: 'false', class: 'zd-prefkey', 'aria-label': 'Prefix symbol' });
+        key.addEventListener('change', () => {
+          const v = key.value;
+          if (v === p) return;
+          if (!validKey(v)) { err.textContent = 'A prefix is one symbol, not a letter, digit or space.'; key.value = p; return; }
+          if (Object.hasOwn(prefixes, v)) { err.textContent = `"${v}" is already used.`; key.value = p; return; }
+          err.textContent = '';
+          save(Object.fromEntries(Object.entries(prefixes).map(([k, t]) => [k === p ? v : k, t])));
+        });
+        const checks = SEARCH_TYPES.map(t => {
+          const cb = h('input', { type: 'checkbox', checked: types.includes(t) });
+          cb.addEventListener('change', () => {
+            const sel = SEARCH_TYPES.filter(x => (x === t ? cb.checked : types.includes(x)));
+            if (!sel.length) { err.textContent = `"${p}" needs at least one tile type.`; cb.checked = true; return; }
+            err.textContent = '';
+            save({ ...prefixes, [p]: sel });
+          });
+          return h('label', { class: 'zd-chk' }, cb, t);
+        });
+        return h('div', { class: 'zd-prefrow' }, key, h('div', { class: 'zd-prefchecks' }, checks),
+          h('button', { class: 'zd-btn zd-sm zd-danger', title: 'Remove this prefix', onclick: () => {
+            err.textContent = '';
+            const next = { ...prefixes }; delete next[p];
+            save(next);
+          } }, icon('trash', 12)));
+      });
+
+      const newKey = h('input', { type: 'text', maxlength: 2, spellcheck: 'false', class: 'zd-prefkey', placeholder: '!', 'aria-label': 'New prefix symbol' });
+      const add = () => {
+        const v = newKey.value;
+        if (!validKey(v)) { err.textContent = 'A prefix is one symbol, not a letter, digit or space.'; return; }
+        if (Object.hasOwn(prefixes, v)) { err.textContent = `"${v}" is already used.`; return; }
+        err.textContent = '';
+        save({ ...prefixes, [v]: ['application'] });
+      };
+      newKey.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+
+      box.replaceChildren(
+        ...rows,
+        h('div', { class: 'zd-prefrow' }, newKey, h('button', { class: 'zd-btn zd-sm', onclick: add }, 'Add prefix'),
+          h('button', { class: 'zd-btn zd-sm', title: 'Restore the built-in shortcuts', onclick: () => {
+            err.textContent = '';
+            save(JSON.parse(JSON.stringify(DEFAULT_SEARCH_PREFIXES)));
+          } }, 'Reset')));
+    }
+    draw();
+
+    return h('div', { class: 'zd-form' }, box, err,
+      h('small', { class: 'zd-muted' }, 'Start a search with a prefix to filter results, e.g. "@" for applications. No prefix searches everything.'));
   }
 
   return { el: root, render, setTab, syncPosition, getTab: () => tab, focusFirst, refreshLayers: fillLayers };
