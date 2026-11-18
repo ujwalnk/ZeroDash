@@ -1,0 +1,27 @@
+# ZeroDash (Caddy) - quick start
+#   docker compose -f compose.caddy.yaml up -d      ->  http://localhost:8080
+#
+# Optional: copy .env.example to .env to set a password for saving.
+
+services:
+  zerodash:
+    image: ghcr.io/<owner>/zerodash:latest-caddy    # replace <owner> with your GitHub user/org
+    container_name: zerodash
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      # Optional. Empty = saving needs no password. Set = saving requires this password (stored hashed).
+      ZERODASH_EDIT_PASSWORD: ${ZERODASH_EDIT_PASSWORD:-}
+      ZERODASH_EDIT_USER: ${ZERODASH_EDIT_USER:-admin}
+    volumes:
+      # Your dashboard.json (+ backup) and optional icons live here.
+      - zerodash-user:/srv/user
+      # Prefer a visible folder? Use this instead:
+      # - ./user:/srv/user
+
+      # Advanced: your own Caddyfile (see DOCKER.md for what it must contain)
+      # - ./Caddyfile:/etc/caddy/Caddyfile:ro
+
+volumes:
+  zerodash-user:

@@ -4,7 +4,6 @@ import { renderLayout } from './core/renderer.js';
 import { fitAllLabels } from './core/textFitter.js';
 import { createDevOverlay, updateDevOverlay } from './core/devOverlay.js';
 import { initSearch } from './core/search.js';
-import { searchConfig } from './user/searchConfig.js';
 
 async function init() {
   try {
@@ -15,7 +14,7 @@ async function init() {
       throw new Error('Dashboard config must be an object');
     }
 
-    const allowedKeys = ['layouts'];
+    const allowedKeys = ['layouts', 'search'];
     const keys = Object.keys(dashboardConfig);
     const unknownKeys = keys.filter(key => !allowedKeys.includes(key));
     
@@ -25,6 +24,11 @@ async function init() {
 
     if (!Array.isArray(dashboardConfig.layouts)) {
       throw new Error('Dashboard config must have a layouts array');
+    }
+
+    if (dashboardConfig.search !== undefined &&
+        (!dashboardConfig.search || typeof dashboardConfig.search !== 'object' || Array.isArray(dashboardConfig.search))) {
+      throw new Error('Dashboard config "search" must be an object if provided');
     }
 
     // Select layout based on rules
@@ -47,7 +51,7 @@ async function init() {
     let devOverlay = createDevOverlay(dashboardConfig.layouts, currentLayoutName);
 
     // Initialize global search
-    const searchEngine = initSearch(dashboardConfig, searchConfig);
+    const searchEngine = initSearch(dashboardConfig, dashboardConfig.search ?? {});
 
     // Edit button (editor code is only downloaded when it is clicked)
     mountEditButton(() => import('./core/editor/editor.js').then(m => {

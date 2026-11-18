@@ -2,11 +2,10 @@
 //
 // Loads and saves the dashboard config.
 //
-//   load : GET  /user/data/dashboard.json   (falls back to user/config.js if absent)
-//   save : PUT  /user/data/dashboard.json   (nginx `dav_methods PUT`, see deploy/nginx.conf)
+//   load : GET  /user/data/dashboard.json   (a built-in empty dashboard is used if the file does not exist yet)
+//   save : PUT  /user/data/dashboard.json   (nginx `dav_methods PUT` / Caddy webdav, see DOCKER.md)
 //
-// The JSON file has exactly the same shape as the object exported by
-// user/config.js ({ layouts: [...] }), so the two sources are interchangeable.
+// Shape: { "layouts": [ ... ], "search": { "prefixes": { "@": ["application"] } } }   ("search" is optional)
 
 export const CONFIG_URL = '/user/data/dashboard.json';
 const BACKUP_URL = CONFIG_URL + '.bak';
@@ -28,21 +27,34 @@ export class SaveError extends Error {
   }
 }
 
+/** Starting point when no dashboard.json exists yet. Saving from the editor creates the file. */
+export function defaultConfig() {
+  return { layouts: [{ name: 'default', rows: 6, columns: 8, tiles: [] }] };
+}
+
 export async function loadConfig() {
+  let res;
   try {
-    const res = await fetch(CONFIG_URL, { cache: 'no-store' });
-    if (res.ok) {
-      const config = await res.json(); // throws on HTML fallbacks / corrupt files
-      loadedLastModified = res.headers.get('Last-Modified');
-      return { config, source: 'json' };
-    }
+    res = await fetch(CONFIG_URL, { cache: 'no-store' });
   } catch (err) {
-    console.warn(`[ZeroDash] ${CONFIG_URL} not usable, falling back to user/config.js:`, err.message);
+    console.warn(`[ZeroDash] Could not fetch ${CONFIG_URL}:`, err.message);
+    return { config: defaultConfig(), source: 'default' };
   }
 
-  const mod = await import('../user/config.js');
-  // Evaluating the helper functions yields plain data; clone so nothing is shared.
-  return { config: JSON.parse(JSON.stringify(mod.dashboardConfig)), source: 'config.js' };
+  const isJson = (res.headers.get('Content-Type') || '').includes('json');
+  if (!res.ok || !isJson) {
+    // Missing file (404), or an SPA fallback answering with index.html: start from an empty dashboard.
+    return { config: defaultConfig(), source: 'default' };
+  }
+
+  try {
+    const config = await res.json();
+    loadedLastModified = res.headers.get('Last-Modified');
+    return { config, source: 'json' };
+  } catch (err) {
+    // Do not fall back to an empty dashboard here: saving would overwrite a file that is only broken, not gone.
+    throw new Error(`${CONFIG_URL} is not valid JSON (${err.message}). Fix or restore the file (a previous version may be at ${BACKUP_URL}).`);
+  }
 }
 
 export function serialize(config) {
@@ -109,7 +121,7 @@ export async function saveConfig(config, { force = false } = {}) {
   if (echoed !== body) {
     throw new SaveError(
       'The server answered the save request but did not store the file. ' +
-      'Write support (PUT) is probably not enabled for ' + CONFIG_URL + ' (see deploy/nginx.conf or deploy/Caddyfile).', 0);
+      'Write support (PUT) is probably not enabled for ' + CONFIG_URL + ' (see DOCKER.md, "Using your own server config").', 0);
   }
   loadedLastModified = check.headers.get('Last-Modified') || loadedLastModified;
 }
@@ -122,7 +134,7 @@ function explain(status) {
     case 404:
       return 'The server returned 404. Does the directory user/data/ exist next to the dashboard files?';
     case 405:
-      return 'The server does not accept PUT here (HTTP 405). Enable WebDAV PUT for ' + CONFIG_URL + ' (see deploy/nginx.conf).';
+      return 'The server does not accept PUT here (HTTP 405). Enable PUT for ' + CONFIG_URL + ' (see DOCKER.md, "Using your own server config").';
     case 409:
       return 'HTTP 409: the target directory does not exist or is not writable by the web server user.';
     case 413:

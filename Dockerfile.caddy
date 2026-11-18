@@ -1,17 +1,31 @@
+# Stock Caddy cannot accept PUT, so build it with the WebDAV module (the editor saves via PUT).
+# Cross-compile on the build host instead of emulating the target CPU.
+FROM --platform=$BUILDPLATFORM caddy:2-builder AS builder
+ARG TARGETOS
+ARG TARGETARCH
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH xcaddy build --with github.com/mholt/caddy-webdav --output /caddy
+
 FROM caddy:2-alpine
 
 LABEL org.opencontainers.image.title="ZeroDash (caddy)" \
-      org.opencontainers.image.description="Static homelab dashboard served by Caddy"
+      org.opencontainers.image.description="Static homelab dashboard with in-browser editor, served by Caddy"
 
-# Dashboard files
-COPY index.html style.css main.js icon.* /srv/
-COPY core/    /srv/core/
-COPY widgets/ /srv/widgets/
+COPY --from=builder /caddy /usr/bin/caddy
 
-# Starter dashboard config. Mount your own directory over /srv/user to replace it.
-COPY docker/default-user/ /srv/user/
+# .dockerignore allows only the dashboard files, docker/ and icon.*; anything else is never sent to the build.
+COPY . /srv/
 
-# Default server config. Mount your own file over this path to replace it.
 COPY docker/caddy/Caddyfile /etc/caddy/Caddyfile
+COPY --chmod=755 docker/caddy/entrypoint.sh /usr/local/bin/zerodash-entrypoint.sh
+
+# Starter dashboard lives outside the web root (so a mounted user/ directory can't hide it) and is
+# copied into user/data/ on first start. Remove the build-only docker/ folder from the web root.
+RUN mkdir -p /usr/share/zerodash \
+ && mv /srv/docker/default-data/dashboard.json /usr/share/zerodash/default-dashboard.json \
+ && rm -rf /srv/docker
 
 EXPOSE 80
+
+# Setting ENTRYPOINT clears the base image's CMD, so repeat it.
+ENTRYPOINT ["/usr/local/bin/zerodash-entrypoint.sh"]
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
