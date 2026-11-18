@@ -316,3 +316,22 @@ select.zd-sel, .zd-panel select, .zd-modal select {
 @container (max-width: 70px)  { .zd-chip { display: none; } }
 @container (max-height: 40px) { .zd-acts, .zd-chip { display: none; } }
 .zd-toasts { bottom: calc(var(--zd-bar) + 12px); }
+
+/* ---- appearance / background controls ---- */
+.zd-seg { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--zd-line); border-radius: 8px; overflow: hidden; }
+.zd-seg button { padding: 7px 0; background: var(--zd-bg2); border: 0; color: var(--zd-muted); font: inherit; cursor: pointer; }
+.zd-seg button + button { border-left: 1px solid var(--zd-line); }
+.zd-seg button.on { background: var(--zd-accent); color: #fff; font-weight: 600; }
+.zd-appearance { display: flex; flex-direction: column; gap: 10px; }
+.zd-appearance input[type=range] { width: 100%; accent-color: var(--zd-accent); }
+.zd-field output { color: var(--zd-text); font: 12px ui-monospace, monospace; text-transform: none; }
+.zd-colorrow { display: flex; align-items: center; gap: 8px; }
+.zd-colorrow > span:first-child { color: var(--zd-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.zd-colorrow input[type=color] { width: 34px; height: 26px; padding: 0; border: 1px solid var(--zd-line); border-radius: 6px; background: none; }
+.zd-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* toolbar: never overlap; scroll if needed, and drop labels on narrower windows */
+.zd-toolbar > * { flex: none; }
+.zd-toolbar { scrollbar-width: thin; }
+@media (max-width: 1560px) { .zd-lbl { display: none; } .zd-status { font-size: 0; } .zd-status::before { margin-right: 0; } }
+@media (max-width: 1250px) { .zd-brand em { display: none; } .zd-tb:not(.zd-icon):not(.zd-primary) { font-size: 0; gap: 0; padding: 0 9px; } .zd-tb .zd-ico { font-size: 13px; } }

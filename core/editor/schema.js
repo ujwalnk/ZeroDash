@@ -84,6 +84,24 @@ export const TILE_TYPES = {
       { key: 'RefreshInterval', label: 'Refresh every (seconds)', kind: 'number', min: 0, help: '0 = never' }
     ]
   },
+  text: {
+    label: 'Text',
+    hint: 'Static text, or live text from any URL',
+    size: [3, 2],
+    defaults: () => ({ text: 'Hello, ZeroDash', css: 'font-size: 26cqmin; font-weight: 600;' }),
+    fields: [
+      { key: 'text', label: 'Text', kind: 'textarea', optional: true, rows: 3,
+        help: 'With a URL below, use {{path}} for values from a JSON response ({{data.items[0].name}}) or {{$}} for the whole response.' },
+      { key: 'url', label: 'Fetch from URL', kind: 'text', optional: true,
+        help: 'Optional. The response is shown as text. The server must allow cross-origin requests (CORS).' },
+      { key: 'method', label: 'Method', kind: 'select', optional: true, options: [['GET', 'GET'], ['POST', 'POST']] },
+      { key: 'payload', label: 'JSON payload', kind: 'json' },
+      { key: 'jsonPath', label: 'JSON path', kind: 'text', optional: true, help: 'e.g. main.temp. Used when Text is empty.' },
+      { key: 'refreshInterval', label: 'Refresh every (seconds)', kind: 'number', optional: true, min: 0, help: '0 = load once' },
+      { key: 'css', label: 'CSS style', kind: 'textarea', optional: true, rows: 4,
+        help: 'Any CSS declarations for the text, e.g. color: #fff; font-family: serif. Tip: cqmin / cqw / cqh units scale with the tile.' }
+    ]
+  },
   webhook: {
     label: 'Webhook',
     hint: 'Calls a URL and shows the response',

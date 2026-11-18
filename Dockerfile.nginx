@@ -1,0 +1,17 @@
+FROM nginx:alpine
+
+LABEL org.opencontainers.image.title="ZeroDash (nginx)" \
+      org.opencontainers.image.description="Static homelab dashboard served by nginx"
+
+# Dashboard files
+COPY index.html style.css main.js icon.* /usr/share/nginx/html/
+COPY core/    /usr/share/nginx/html/core/
+COPY widgets/ /usr/share/nginx/html/widgets/
+
+# Starter dashboard config. Mount your own directory over /usr/share/nginx/html/user to replace it.
+COPY docker/default-user/ /usr/share/nginx/html/user/
+
+# Default server config. Mount your own file over this path to replace it.
+COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80

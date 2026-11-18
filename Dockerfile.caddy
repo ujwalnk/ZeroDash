@@ -1,0 +1,17 @@
+FROM caddy:2-alpine
+
+LABEL org.opencontainers.image.title="ZeroDash (caddy)" \
+      org.opencontainers.image.description="Static homelab dashboard served by Caddy"
+
+# Dashboard files
+COPY index.html style.css main.js icon.* /srv/
+COPY core/    /srv/core/
+COPY widgets/ /srv/widgets/
+
+# Starter dashboard config. Mount your own directory over /srv/user to replace it.
+COPY docker/default-user/ /srv/user/
+
+# Default server config. Mount your own file over this path to replace it.
+COPY docker/caddy/Caddyfile /etc/caddy/Caddyfile
+
+EXPOSE 80

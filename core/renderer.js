@@ -20,6 +20,7 @@ export function applyGrid(container, layout) {
   container.style.gap = '10px';
   container.style.width = '100%';
   container.style.height = '100%';
+  container.style.background = layout.background || '';
 }
 
 export function renderLayout(layout, container) {
@@ -51,7 +52,7 @@ export function renderLayout(layout, container) {
 }
 
 export function validateLayout(layout) {
-  const allowedKeys = ['name', 'mediaQuery', 'rows', 'columns', 'tiles'];
+  const allowedKeys = ['name', 'mediaQuery', 'rows', 'columns', 'tiles', 'background'];
   const keys = Object.keys(layout);
   const unknownKeys = keys.filter(key => !allowedKeys.includes(key));
 
@@ -65,6 +66,10 @@ export function validateLayout(layout) {
 
   if (layout.mediaQuery !== undefined && typeof layout.mediaQuery !== 'string') {
     throw new Error('Layout mediaQuery must be a string if provided');
+  }
+
+  if (layout.background !== undefined && typeof layout.background !== 'string') {
+    throw new Error('Layout background must be a CSS background string if provided');
   }
 
   if (typeof layout.rows !== 'number' || layout.rows <= 0) {

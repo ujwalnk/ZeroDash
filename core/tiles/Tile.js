@@ -1,4 +1,5 @@
 import { TileType } from '../TileType.js';
+import { validateAppearance, applyAppearance } from '../appearance.js';
 
 export class Tile {
   constructor(tileConfig) {
@@ -10,6 +11,7 @@ export class Tile {
     this.width = tileConfig.layout.width;
     this.height = tileConfig.layout.height;
     this.config = tileConfig.config;
+    this.appearance = tileConfig.appearance;
   }
 
   validateTileStructure(tileConfig) {
@@ -17,7 +19,7 @@ export class Tile {
       throw new Error('Tile config must be an object');
     }
 
-    const allowedKeys = ['type', 'layout', 'config'];
+    const allowedKeys = ['type', 'layout', 'config', 'appearance'];
     const keys = Object.keys(tileConfig);
     const unknownKeys = keys.filter(key => !allowedKeys.includes(key));
     
@@ -40,6 +42,8 @@ export class Tile {
     if (!tileConfig.config) {
       throw new Error('Tile config must have a config');
     }
+
+    validateAppearance(tileConfig.appearance);
   }
 
   validateLayout(layout) {
@@ -78,6 +82,8 @@ export class Tile {
     tileElement.style.gridColumn = `${this.x + 1} / ${this.x + 1 + this.width}`;
     tileElement.style.gridRow = `${this.y + 1} / ${this.y + 1 + this.height}`;
     
+    applyAppearance(tileElement, this.appearance);
+
     container.appendChild(tileElement);
     return tileElement;
   }

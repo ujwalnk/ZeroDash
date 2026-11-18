@@ -88,6 +88,7 @@ export function createInspector(ed) {
         posField('x', 'Column', 1, 1), posField('y', 'Row', 1, 1),
         posField('width', 'Width', 0, 1), posField('height', 'Height', 0, 1)),
       def.fields.map(f => fieldRow(t, f, onConfigChange)),
+      appearanceSection(t),
       errBox,
       h('div', { class: 'zd-row' },
         h('button', { class: 'zd-btn', onclick: () => ed.duplicateTile(t) }, icon('copy', 13), 'Duplicate'),
@@ -96,6 +97,49 @@ export function createInspector(ed) {
       layersSection());
     refreshError();
     return form;
+  }
+
+  // Appearance: opaque / glass / transparent, for every tile type.
+  function toHex(c) {
+    if (/^#[0-9a-f]{6}$/i.test(c || '')) return c;
+    const m = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(c || '');
+    return m ? `#${m[1]}${m[1]}${m[2]}${m[2]}${m[3]}${m[3]}` : '#000000';
+  }
+
+  function appearanceSection(t) {
+    const a = t.appearance || {};
+    const mode = a.mode || 'opaque';
+
+    const seg = h('div', { class: 'zd-seg' },
+      [['opaque', 'Opaque'], ['glass', 'Glass'], ['transparent', 'Transparent']].map(([m, label]) =>
+        h('button', { class: m === mode ? 'on' : '', onclick: () => { ed.setAppearance(t, { mode: m }); render(); } }, label)));
+
+    let glass = null;
+    if (mode === 'glass') {
+      const d = a.distortion ?? 30;
+      const out = h('output', {}, String(d));
+      const range = h('input', { type: 'range', min: 0, max: 100, step: 1, value: d });
+      range.addEventListener('input', () => {
+        out.textContent = range.value;
+        ed.setAppearance(t, { distortion: Number(range.value) }, 'appearance-d');
+      });
+      glass = h('div', { class: 'zd-field' },
+        h('span', {}, 'Distortion ', out),
+        range,
+        h('small', { class: 'zd-muted' }, 'Glass bends what is behind it, so set a layout Background (Layout tab). The warp needs a Chromium browser; others get frosted blur.'));
+    }
+
+    const color = h('input', { type: 'color', value: toHex(a.textColor) });
+    color.addEventListener('input', () => ed.setAppearance(t, { textColor: color.value }, 'appearance-c'));
+    const colorRow = h('div', { class: 'zd-colorrow' },
+      h('span', {}, 'Text colour'), color,
+      h('small', { class: 'zd-muted' }, a.textColor ? a.textColor : 'auto'),
+      a.textColor ? h('button', { class: 'zd-btn zd-sm', onclick: () => { ed.setAppearance(t, { textColor: undefined }); render(); } }, 'Auto') : null);
+
+    return h('div', { class: 'zd-appearance' },
+      h('div', { class: 'zd-sec' }, 'Appearance'),
+      seg, glass, colorRow,
+      h('button', { class: 'zd-btn zd-sm', onclick: () => ed.applyAppearanceToAll(t) }, 'Apply to all tiles in this layout'));
   }
 
   // Layers: every tile of the layout, top of the stack first. Handy for tiles hidden under others.
@@ -112,7 +156,8 @@ export function createInspector(ed) {
     if (!tiles.length) { layersBox.replaceChildren(h('p', { class: 'zd-muted' }, 'No tiles yet.')); return; }
     layersBox.replaceChildren(...[...tiles].reverse().map(t => {
       const i = tiles.indexOf(t);
-      let name = t.config.label || t.config.url || t.config.targetUrl || t.type;
+      let name = t.config.label || t.config.text || t.config.url || t.config.targetUrl || t.type;
+      if (typeof name === 'string' && name.length > 60) name = name.slice(0, 60) + '…';
       try { const u = new URL(name); name = u.host + (u.pathname === '/' ? '' : u.pathname); } catch { /* not a URL */ }
       return h('div', { class: 'zd-layer' + (t === sel ? ' on' : '') + (ed.tileError(t) ? ' bad' : '') },
         h('button', { class: 'zd-layer-main', onclick: () => ed.select(t), title: 'Select' },
@@ -150,6 +195,12 @@ export function createInspector(ed) {
       control.addEventListener('input', () => {
         const v = Number(control.value);
         if (control.value !== '' && Number.isFinite(v)) onChange(f.key, v, 'f-' + f.key);
+      });
+    } else if (f.kind === 'textarea') {
+      control = h('textarea', { rows: f.rows || 3, spellcheck: 'false' }, current ?? '');
+      control.addEventListener('input', () => {
+        const v = control.value;
+        onChange(f.key, v === '' && f.optional ? undefined : v, 'f-' + f.key);
       });
     } else if (f.kind === 'json') {
       control = h('textarea', { rows: 3, spellcheck: 'false', placeholder: '{ }' },
@@ -278,6 +329,20 @@ export function createInspector(ed) {
       return i;
     };
 
+    // --- background (glass tiles need something behind them)
+    const bg = h('input', { type: 'text', value: layout.background || '', spellcheck: 'false',
+      placeholder: '#101820 · linear-gradient(…) · url(/user/bg.jpg) center/cover' });
+    bg.addEventListener('input', () => ed.setBackground(bg.value.trim()));
+    const BG_PRESETS = [
+      ['None', ''],
+      ['Dark', '#0f1117'],
+      ['Aurora', 'linear-gradient(135deg, #1e3c72, #2a5298 45%, #7b4397)'],
+      ['Sunset', 'linear-gradient(135deg, #ff9966, #ff5e62 50%, #7b2ff7)'],
+      ['Ocean', 'radial-gradient(circle at 20% 20%, #4facfe, #00205b 70%)']
+    ];
+    const bgPresets = h('div', { class: 'zd-presets' }, BG_PRESETS.map(([label, v]) =>
+      h('button', { class: 'zd-btn zd-sm', onclick: () => { bg.value = v; ed.setBackground(v); } }, label)));
+
     // --- ordered list of layouts
     const list = h('div', { class: 'zd-layouts' });
     function refreshMatchList() {
@@ -312,6 +377,10 @@ export function createInspector(ed) {
       h('div', { class: 'zd-grid2' },
         h('label', { class: 'zd-mini' }, h('span', {}, 'Columns'), gridInput('columns')),
         h('label', { class: 'zd-mini' }, h('span', {}, 'Rows'), gridInput('rows'))),
+      h('div', { class: 'zd-sec' }, 'Background'),
+      h('label', { class: 'zd-field' }, h('span', {}, 'CSS background'), bg,
+        h('small', { class: 'zd-muted' }, 'Any CSS background: colour, gradient or image. Makes glass tiles visible.')),
+      bgPresets,
       h('div', { class: 'zd-sec' }, 'All layouts — first match wins'),
       list,
       h('div', { class: 'zd-row' },

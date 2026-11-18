@@ -10,6 +10,7 @@
 import { TileFactory } from '../TileFactory.js';
 import { applyGrid, destroyTiles } from '../renderer.js';
 import { fitAllLabels } from '../textFitter.js';
+import { applyAppearance } from '../appearance.js';
 import { h, clamp, icon } from './dom.js';
 
 const HANDLES = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
@@ -136,7 +137,7 @@ export function createCanvas(ed) {
     const e = entries.get(t);
     if (!e) return;
     const l = t.layout;
-    e.cover.querySelector('.zd-chip').textContent = `${t.config?.label || t.type} · ${l.width}×${l.height}`;
+    e.cover.querySelector('.zd-chip').textContent = `${t.config?.label || (t.config?.text ? String(t.config.text).slice(0, 18) : t.type)} · ${l.width}×${l.height}`;
     e.cover.classList.toggle('zd-error', !!e.error);
   }
 
@@ -166,6 +167,10 @@ export function createCanvas(ed) {
     if (wasSelected) { entries.get(t).cover.classList.add('zd-selected'); applyOrder(); }
     refreshFlags();
     refit();
+  }
+  function restyle(t) {
+    const e = entries.get(t);
+    if (e) applyAppearance(e.el, t.appearance);
   }
   function errorOf(t) { return entries.get(t)?.error || null; }
 
@@ -346,6 +351,6 @@ export function createCanvas(ed) {
 
   return {
     renderAll, syncGrid, addTile, removeTile, remountTile, setSelected,
-    geometryChanged, refreshFlags, errorOf, findFreeSpot, refit, applyOrder
+    geometryChanged, refreshFlags, errorOf, findFreeSpot, refit, applyOrder, restyle
   };
 }

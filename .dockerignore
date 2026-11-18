@@ -1,0 +1,10 @@
+# Only the files the Dockerfiles COPY are needed; keep personal config out of images.
+.git
+.github
+.gitignore
+user
+make-context.bash
+README.md
+DOCKER.md
+*.zip
+.DS_Store

@@ -92,7 +92,8 @@ export function fitAllLabels(container, options = {}) {
       return (
         (child.tagName === 'SPAN' || child.tagName === 'DIV') &&
         !child.classList.contains('webhook-content') &&
-        !child.classList.contains('toggle-error')
+        !child.classList.contains('toggle-error') &&
+        !child.classList.contains('text-content')
       );
     });
 

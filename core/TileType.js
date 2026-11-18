@@ -4,6 +4,7 @@ export const TileType = Object.freeze({
   BUTTON: "button",
   TOGGLE: "toggle",
   LINK: "link",
-  APPLICATION: "application"
+  APPLICATION: "application",
+  TEXT: "text"
 });
 

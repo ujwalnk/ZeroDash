@@ -59,6 +59,7 @@ export function startEditor({ config, layoutName, container, source }) {
     onGeometry: t => { inspector.syncPosition(); setCursor(null, t); },
     openTypeMenu, openContextMenu, applyStageSize, refreshToolbar,
     copyTile, pasteTile, moveZ, setCursor,
+    setAppearance, applyAppearanceToAll, setBackground,
     focusPanel: () => inspector.focusFirst(),
     refreshLayers: () => inspector.refreshLayers(),
     tileError: t => canvas.errorOf(t),
@@ -195,6 +196,36 @@ export function startEditor({ config, layoutName, container, source }) {
     canvas.addTile(copy);
     select(copy);
     inspector.refreshLayers();
+  }
+
+  function setAppearance(t, patch, key = null) {
+    mutate(() => {
+      const a = { ...(t.appearance || {}), ...patch };
+      for (const k of Object.keys(a)) if (a[k] === undefined) delete a[k];
+      if (a.mode !== 'glass') delete a.distortion;
+      if (a.mode === 'glass' && a.distortion === undefined) a.distortion = 30;
+      if ((!a.mode || a.mode === 'opaque') && !a.textColor) delete t.appearance;
+      else t.appearance = a;
+    }, key);
+    canvas.restyle(t);
+  }
+
+  function applyAppearanceToAll(src) {
+    const tiles = ed.layout().tiles;
+    mutate(() => {
+      for (const o of tiles) {
+        if (src.appearance) o.appearance = JSON.parse(JSON.stringify(src.appearance));
+        else delete o.appearance;
+      }
+    });
+    tiles.forEach(o => canvas.restyle(o));
+    toast(`Appearance applied to ${tiles.length} tile(s)`);
+  }
+
+  function setBackground(v) {
+    const layout = ed.layout();
+    mutate(() => { if (v) layout.background = v; else delete layout.background; }, 'bg');
+    canvas.syncGrid();
   }
 
   /** dir: 'front' | 'back' | +1 | -1 — stacking order equals order in the tiles array. */

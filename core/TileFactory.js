@@ -5,6 +5,7 @@ import { ButtonTile } from './tiles/ButtonTile.js';
 import { ToggleTile } from './tiles/ToggleTile.js';
 import { LinkTile } from './tiles/LinkTile.js';
 import { ApplicationTile } from './tiles/ApplicationTile.js';
+import { TextTile } from './tiles/TextTile.js';
 
 export class TileFactory {
   static create(tileConfig) {
@@ -21,6 +22,8 @@ export class TileFactory {
         return new LinkTile(tileConfig);
       case TileType.APPLICATION:
         return new ApplicationTile(tileConfig);
+      case TileType.TEXT:
+        return new TextTile(tileConfig);
       default:
         throw new Error(`Unknown tile type: ${tileConfig.type}`);
     }

@@ -1,0 +1,18 @@
+# ZeroDash default Caddyfile (baked into the image).
+# Override by mounting your own file at /etc/caddy/Caddyfile
+http://:80 {
+	root * /srv
+	encode zstd gzip
+
+	# Always revalidate so edits to user/config.js show up on refresh.
+	header Cache-Control "no-cache"
+
+	# /layout/<name> loads index.html, whose relative URLs (./main.js, ./core/...)
+	# then resolve to /layout/main.js, /layout/core/... -> map them back to the root.
+	@layoutAssets path_regexp layoutAsset ^/layout/(.+\.[A-Za-z0-9]+)$
+	rewrite @layoutAssets /{re.layoutAsset.1}
+
+	# SPA fallback: /<layoutName> and /layout/<layoutName> must serve index.html.
+	try_files {path} {path}/ /index.html
+	file_server
+}
